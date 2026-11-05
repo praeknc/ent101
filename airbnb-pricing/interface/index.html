@@ -1,0 +1,908 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Boston Airbnb Price Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a working price tool up top, then the project write-up as a numbered pipeline (data → features → models → verdict). */
+:root {
+  --paper: #f2f4f6;
+  --surface: #ffffff;
+  --ink: #17212b;
+  --muted: #56636f;
+  --line: #d4dbe2;
+  --brick: #a5412c;
+  --harbor: #1d5d79;
+  --m-base: #8c97a1;
+  --m-ols: #b8891b;
+  --m-lasso: #7b5aa6;
+  --m-rf: #1d5d79;
+  --m-gb: #a5412c;
+  --good: #2d7a4f;
+  --font-display: "Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-data: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --step--1: 0.8125rem;
+  --step-0: 1rem;
+  --step-1: 1.25rem;
+  --step-2: 1.6rem;
+  --step-3: 2.3rem;
+  --step-4: clamp(2.2rem, 5vw, 3.6rem);
+  --radius: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f151a; --surface: #161e25; --ink: #e5ebf0; --muted: #95a3af; --line: #29343e;
+    --brick: #e27d63; --harbor: #6eb4d2; --m-base: #7d8994; --m-ols: #ddb24b; --m-lasso: #b297dc;
+    --m-rf: #6eb4d2; --m-gb: #e27d63; --good: #6cc191; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f151a; --surface: #161e25; --ink: #e5ebf0; --muted: #95a3af; --line: #29343e;
+  --brick: #e27d63; --harbor: #6eb4d2; --m-base: #7d8994; --m-ols: #ddb24b; --m-lasso: #b297dc;
+  --m-rf: #6eb4d2; --m-gb: #e27d63; --good: #6cc191; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-body); font-size: 17px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--paper); }
+.wrap { max-width: 1120px; margin: 0 auto; }
+h1, h2, h3, h4 { font-family: var(--font-display); line-height: 1.15; text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h2 { font-size: var(--step-3); font-weight: 700; }
+h3 { font-size: var(--step-1); font-weight: 600; }
+p { margin: 0; max-width: 66ch; }
+a { color: var(--harbor); }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--brick); outline-offset: 2px; }
+.mono, .num { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.label { font-family: var(--font-display); font-size: var(--step--1); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.muted { color: var(--muted); }
+
+/* top bar */
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--paper); border-bottom: 1px solid var(--line); }
+.topbar .wrap { display: flex; align-items: center; gap: 20px; padding-block: 12px; flex-wrap: wrap; }
+.brand { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; color: var(--ink); text-decoration: none; display: flex; align-items: center; gap: 8px; }
+.brand svg { flex: none; }
+.topbar nav { display: flex; gap: 4px 16px; flex-wrap: wrap; margin-left: auto; font-family: var(--font-display); font-size: 0.92rem; }
+.topbar nav a { color: var(--muted); text-decoration: none; }
+.topbar nav a:hover { color: var(--ink); }
+
+/* hero */
+.hero { padding-block: 56px 36px; display: grid; gap: 22px; }
+.hero h1 { font-size: var(--step-4); font-weight: 700; max-width: 20ch; }
+.hero h1 em { font-style: normal; color: var(--brick); }
+.hero p.lede { font-size: 1.15rem; color: var(--muted); max-width: 62ch; }
+.facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-top: 8px; }
+.facts > div { padding: 14px 16px 14px 0; display: grid; gap: 2px; }
+.facts > div + div { padding-left: 16px; border-left: 1px solid var(--line); }
+.facts .v { font-family: var(--font-display); font-size: var(--step-2); font-weight: 700; font-variant-numeric: tabular-nums; }
+.facts .k { font-size: 0.9rem; color: var(--muted); line-height: 1.35; }
+@media (max-width: 720px) { .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .facts > div:nth-child(3) { padding-left: 0; border-left: 0; } .facts > div:nth-child(n+3) { border-top: 1px solid var(--line); } }
+
+/* sections */
+section.block { padding-block: 56px; border-top: 1px solid var(--line); display: grid; gap: 22px; }
+.sec-head { display: grid; gap: 8px; }
+.step-no { font-family: var(--font-data); color: var(--brick); font-size: 0.9rem; }
+.grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+@media (max-width: 860px) { .grid-2 { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; min-width: 0; }
+.panel h3 { margin-bottom: 4px; }
+.panel .cap { font-size: 0.92rem; color: var(--muted); margin-bottom: 10px; }
+.table-scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--font-display); font-weight: 600; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+td.num, th.num { text-align: right; white-space: nowrap; }
+tr.best td { background: color-mix(in oklab, var(--harbor) 10%, transparent); }
+.chip { display: inline-block; font-family: var(--font-display); font-size: 0.78rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.chip.use { color: var(--good); } .chip.drop { color: var(--muted); } .chip.target { color: var(--brick); } .chip.src { color: var(--harbor); }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+
+/* files */
+.files { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 760px) { .files { grid-template-columns: minmax(0, 1fr); } }
+.file { border-top: 3px solid var(--harbor); padding-top: 12px; display: grid; gap: 6px; }
+.file code { font-family: var(--font-data); font-size: 0.95rem; }
+.file p { font-size: 0.95rem; }
+
+/* calculator */
+.calc { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+@media (max-width: 900px) { .calc { grid-template-columns: minmax(0, 1fr); } }
+.calc-in { padding: 20px; display: grid; gap: 18px; border-right: 1px solid var(--line); min-width: 0; }
+@media (max-width: 900px) { .calc-in { border-right: 0; border-bottom: 1px solid var(--line); } }
+.calc-out { padding: 20px; display: grid; gap: 22px; align-content: start; min-width: 0; }
+.field { display: grid; gap: 6px; }
+.field > label, .field > .label { font-family: var(--font-display); font-size: 0.85rem; font-weight: 600; color: var(--ink); text-transform: none; letter-spacing: 0; }
+.field .hint { font-size: 0.82rem; color: var(--muted); }
+.row-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+.row-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 480px) { .row-3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+select, input[type="number"] {
+  font: inherit; font-family: var(--font-data); font-size: 0.95rem; color: var(--ink); background: var(--paper);
+  border: 1px solid var(--line); border-radius: 4px; padding: 7px 9px; width: 100%; min-width: 0;
+}
+input[type="range"] { width: 100%; accent-color: var(--harbor); }
+.seg { display: flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.seg button { flex: 1 1 auto; font-family: var(--font-display); font-size: 0.88rem; font-weight: 500; color: var(--ink); background: var(--paper); border: 0; border-right: 1px solid var(--line); padding: 7px 10px; cursor: pointer; }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.checks { display: flex; flex-wrap: wrap; gap: 8px; }
+.checks label { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-display); font-size: 0.88rem; border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px 4px 8px; cursor: pointer; background: var(--paper); }
+.checks input { accent-color: var(--brick); margin: 0; }
+.map-wrap { position: relative; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); }
+.map-wrap svg { display: block; width: 100%; height: auto; max-height: 380px; }
+.map-wrap path { stroke: var(--surface); stroke-width: 0.6; cursor: pointer; }
+.map-wrap path.disabled { cursor: not-allowed; }
+.map-wrap path.sel { stroke: var(--ink); stroke-width: 1.6; }
+.map-legend { display: flex; align-items: center; gap: 8px; font-family: var(--font-data); font-size: 0.75rem; color: var(--muted); padding: 6px 10px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.map-legend .ramp { height: 8px; width: 120px; border-radius: 2px; }
+
+.price-head { display: grid; gap: 4px; }
+.price-big { font-family: var(--font-display); font-weight: 700; font-size: clamp(3rem, 8vw, 4.6rem); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.price-big small { font-size: 0.3em; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.range-bar { position: relative; height: 54px; margin-top: 6px; }
+.out-note { font-size: 0.9rem; color: var(--muted); }
+.drivers { display: grid; gap: 6px; }
+.driver { display: grid; grid-template-columns: minmax(0, 1fr) 70px; gap: 10px; align-items: center; font-size: 0.92rem; }
+.driver .bar { height: 8px; border-radius: 2px; }
+.driver .val { font-family: var(--font-data); font-size: 0.85rem; text-align: right; }
+.driver .name { display: flex; flex-direction: column; gap: 3px; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { font-family: var(--font-display); font-size: 0.88rem; font-weight: 600; padding: 7px 12px; border-radius: 4px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; }
+.btn:hover { border-color: var(--ink); }
+
+/* charts */
+svg text { fill: var(--muted); font-family: var(--font-data); font-size: 11px; }
+svg .ink { fill: var(--ink); }
+svg .grid { stroke: var(--line); stroke-width: 1; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.tabs button { font-family: var(--font-display); font-size: 0.85rem; border: 1px solid var(--line); background: var(--paper); color: var(--ink); padding: 5px 10px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; }
+.tabs button[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--paper); }
+
+/* models */
+.models { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 16px; }
+.model { border-top: 3px solid var(--c); padding-top: 12px; display: grid; gap: 8px; align-content: start; }
+.model h3 { font-size: 1.1rem; }
+.model p { font-size: 0.93rem; }
+.model dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 0.85rem; }
+.model dt { color: var(--muted); font-family: var(--font-display); }
+.model dd { margin: 0; }
+.model .formula { font-family: var(--font-data); font-size: 0.8rem; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; overflow-x: auto; white-space: nowrap; }
+
+.verdict { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 28px; }
+@media (max-width: 860px) { .verdict { grid-template-columns: minmax(0, 1fr); } }
+.verdict .call { border-left: 4px solid var(--harbor); padding-left: 18px; display: grid; gap: 12px; }
+.verdict .call h3 { font-size: var(--step-2); }
+ol.reasons, ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; max-width: 66ch; }
+.feat-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 0 28px; }
+.feat { padding: 10px 0; border-bottom: 1px solid var(--line); display: grid; gap: 2px; }
+.feat code { font-family: var(--font-data); font-size: 0.85rem; color: var(--harbor); }
+.feat span { font-size: 0.92rem; }
+footer { border-top: 1px solid var(--line); padding-block: 28px 48px; font-size: 0.92rem; color: var(--muted); display: grid; gap: 10px; }
+footer code { font-family: var(--font-data); font-size: 0.85rem; background: var(--surface); border: 1px solid var(--line); padding: 1px 5px; border-radius: 3px; }
+.loading { color: var(--muted); font-style: italic; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="1" y="9" width="6" height="12" fill="var(--brick)"/><rect x="8" y="4" width="6" height="17" fill="var(--harbor)"/><rect x="15" y="12" width="6" height="9" fill="var(--muted)"/></svg>
+      Boston Airbnb Price Lab
+    </a>
+    <nav aria-label="Sections">
+      <a href="#calculator">Price my listing</a>
+      <a href="#data">Data</a>
+      <a href="#features">Features</a>
+      <a href="#models">Models</a>
+      <a href="#compare">Comparison</a>
+      <a href="#verdict">Verdict</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap" id="top">
+
+<section class="hero">
+  <span class="label">Predictive analytics project · Inside Airbnb, Boston</span>
+  <h1>What should a Boston host charge <em>per night?</em></h1>
+  <p class="lede">I trained five pricing models on the listing prices Boston hosts post today, compared them on unseen listings, and turned the best one into the calculator below. Describe your place and it recommends a nightly rate, with a likely range and the reasons behind it.</p>
+  <div class="facts" id="facts">
+    <div><span class="v num" id="f-rows">3,480</span><span class="k">priced listings used for training and testing</span></div>
+    <div><span class="v num" id="f-feat">48</span><span class="k">features built from 19 raw columns</span></div>
+    <div><span class="v num">5</span><span class="k">methods compared: baseline, OLS, Lasso, random forest, boosting</span></div>
+    <div><span class="v num" id="f-mae">$86</span><span class="k" id="f-mae-k">average error of the best model per night</span></div>
+  </div>
+</section>
+
+<!-- ============ CALCULATOR ============ -->
+<section class="block" id="calculator" aria-labelledby="calc-h">
+  <div class="sec-head">
+    <span class="label">The tool</span>
+    <h2 id="calc-h">Price my listing</h2>
+    <p class="muted">The form opens with an example: a renovated two-bedroom in the South End. Change any field, or click the map to place your listing, and every model reprices it instantly in your browser.</p>
+  </div>
+
+  <div class="calc">
+    <form class="calc-in" id="calc-form" autocomplete="off">
+      <div class="field">
+        <label for="in-hood">Neighbourhood</label>
+        <select id="in-hood"></select>
+        <div class="map-wrap">
+          <svg id="map" role="img" aria-label="Map of Boston neighbourhoods shaded by median nightly price. Click to place your listing."></svg>
+          <div class="map-legend"><span>median $/night</span><span class="ramp" id="ramp"></span><span id="ramp-lo"></span>–<span id="ramp-hi"></span><span style="margin-left:auto">click to drop a pin</span></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="label">Room type</span>
+        <div class="seg" id="in-room" role="group" aria-label="Room type">
+          <button type="button" data-v="Entire home/apt" aria-pressed="true">Entire home</button>
+          <button type="button" data-v="Private room" aria-pressed="false">Private room</button>
+          <button type="button" data-v="Hotel room" aria-pressed="false">Hotel room</button>
+          <button type="button" data-v="Shared room" aria-pressed="false">Shared room</button>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="in-beds">Bedrooms</label>
+          <select id="in-beds">
+            <option value="0">Studio</option><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6+</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="in-min">Minimum nights</label>
+          <input type="number" id="in-min" min="1" max="365" value="2">
+          <span class="hint">28+ makes it a monthly rental</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="in-avail">Nights open per year: <span class="mono" id="avail-v">180</span></label>
+        <input type="range" id="in-avail" min="0" max="365" value="180">
+      </div>
+
+      <div class="row-3">
+        <div class="field"><label for="in-rev">Total reviews</label><input type="number" id="in-rev" min="0" value="25"></div>
+        <div class="field"><label for="in-rpm">Reviews / month</label><input type="number" id="in-rpm" min="0" step="0.1" value="1.5"></div>
+        <div class="field"><label for="in-ltm">Reviews, last 12 mo</label><input type="number" id="in-ltm" min="0" value="10"></div>
+      </div>
+
+      <div class="row-2">
+        <div class="field"><label for="in-host">Listings you host</label><input type="number" id="in-host" min="1" value="1"></div>
+        <div class="field">
+          <label for="in-lic">Boston STR license</label>
+          <select id="in-lic"><option value="licensed" selected>Licensed (STR-…)</option><option value="exempt">Exempt</option><option value="none">None listed</option></select>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="label">Your title mentions</span>
+        <div class="checks" id="in-kw">
+          <label><input type="checkbox" id="kw_luxury" checked> Modern / renovated</label>
+          <label><input type="checkbox" id="kw_parking"> Parking</label>
+          <label><input type="checkbox" id="kw_view"> View / rooftop</label>
+          <label><input type="checkbox" id="kw_amenities"> Gym / pool / concierge</label>
+          <label><input type="checkbox" id="kw_managed"> Furnished, managed brand</label>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button type="button" class="btn" data-preset="new">Example: brand-new studio</button>
+        <button type="button" class="btn" data-preset="room">Example: private room</button>
+        <button type="button" class="btn" data-preset="monthly">Example: monthly rental</button>
+      </div>
+    </form>
+
+    <div class="calc-out" aria-live="polite">
+      <div class="price-head">
+        <span class="label" id="out-model-label">Recommended nightly price</span>
+        <div class="price-big num" id="out-price"><span class="loading">loading models…</span></div>
+        <p class="out-note" id="out-range-note"></p>
+        <svg class="range-bar" id="range-bar" viewBox="0 0 400 54" preserveAspectRatio="none" aria-hidden="true"></svg>
+      </div>
+
+      <div>
+        <h3>What each method says</h3>
+        <p class="out-note">Same listing, five models. The one marked ★ had the lowest error on unseen listings.</p>
+        <svg id="out-models" viewBox="0 0 420 170" width="100%" role="img" aria-label="Predicted price by model"></svg>
+      </div>
+
+      <div>
+        <h3>Why this price</h3>
+        <p class="out-note">Lasso shows the biggest effects compared with an average Boston listing. Each effect assumes everything else stays the same.</p>
+        <div class="drivers" id="out-drivers"></div>
+      </div>
+
+      <div>
+        <h3>Same place, other neighbourhoods</h3>
+        <p class="out-note">Your listing re-priced by the random forest in each part of Boston, each placed at that neighbourhood's typical location.</p>
+        <svg id="out-hoods" viewBox="0 0 420 520" width="100%" role="img" aria-label="Predicted price of this listing in each neighbourhood"></svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 1. DATA ============ -->
+<section class="block" id="data" aria-labelledby="data-h">
+  <div class="sec-head">
+    <span class="step-no">Step 1</span>
+    <h2 id="data-h">Which data the model needs</h2>
+    <p>The question is a regression problem: predict a number (price per night) from what a host knows about the listing. Three files from the Inside Airbnb Boston snapshot cover it.</p>
+  </div>
+  <div class="files">
+    <div class="file"><code>listings.csv</code><span class="label">4,368 rows · 19 columns</span><p>One row per listing: location, room type, house rules, review activity, host size, license and the advertised <strong>price</strong>, which is the target. This is the modelling table.</p></div>
+    <div class="file"><code>neighbourhoods.csv</code><span class="label">26 rows</span><p>The official neighbourhood list. Used to validate the <code>neighbourhood</code> column and to fix the order of the 26 one-hot columns.</p></div>
+    <div class="file"><code>neighbourhoods.geojson</code><span class="label">26 polygons</span><p>Neighbourhood boundaries. They draw the maps and the location picker above. Harbor Islands has no listings, so it is shown in grey.</p></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <h3>Column decisions</h3>
+      <p class="cap">Identifiers and personal data are dropped so the model learns about listings, not specific hosts.</p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Column</th><th>Decision</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">price</td><td><span class="chip target">Target</span></td><td>Nightly USD. 882 listings have none (inactive) and are removed; prices above $2,000 (top 0.2%) are trimmed.</td></tr>
+            <tr><td class="mono">neighbourhood</td><td><span class="chip use">Feature</span></td><td>Location category, one-hot encoded</td></tr>
+            <tr><td class="mono">latitude, longitude</td><td><span class="chip use">Feature</span></td><td>Exact location, plus distance to Boston Common</td></tr>
+            <tr><td class="mono">room_type</td><td><span class="chip use">Feature</span></td><td>Entire home, private, hotel or shared room</td></tr>
+            <tr><td class="mono">minimum_nights</td><td><span class="chip use">Feature</span></td><td>Separates short stays from 28+ night monthly rentals</td></tr>
+            <tr><td class="mono">number_of_reviews, reviews_per_month, number_of_reviews_ltm</td><td><span class="chip use">Feature</span></td><td>Track record and demand. Missing reviews/month means 0.</td></tr>
+            <tr><td class="mono">calculated_host_listings_count</td><td><span class="chip use">Feature</span></td><td>Professional operator vs a single-listing host</td></tr>
+            <tr><td class="mono">availability_365</td><td><span class="chip use">Feature</span></td><td>How much of the year the calendar is open</td></tr>
+            <tr><td class="mono">name</td><td><span class="chip src">Feature source</span></td><td>Title text gives bedrooms ("2BR", "Studio") and amenity keywords</td></tr>
+            <tr><td class="mono">license</td><td><span class="chip src">Feature source</span></td><td>Licensed, exempt or none</td></tr>
+            <tr><td class="mono">id, host_id, host_profile_id, host_name</td><td><span class="chip drop">Drop</span></td><td>Identifiers and personal data</td></tr>
+            <tr><td class="mono">neighbourhood_group</td><td><span class="chip drop">Drop</span></td><td>Empty for every Boston row</td></tr>
+            <tr><td class="mono">last_review</td><td><span class="chip drop">Drop</span></td><td>A date that reviews_per_month already captures</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div style="display:grid; gap:28px; min-width:0">
+      <div class="panel">
+        <h3>Prices are right-skewed</h3>
+        <p class="cap">Distribution of nightly price on a log scale. Modelling log(price) turns errors into percentages, so a $40 miss on a $100 room counts more than on a $900 house.</p>
+        <svg id="ch-hist" viewBox="0 0 480 200" width="100%" role="img" aria-label="Histogram of nightly prices"></svg>
+      </div>
+      <div class="panel">
+        <h3>Room type sets the level</h3>
+        <p class="cap">Median nightly price and number of listings.</p>
+        <svg id="ch-room" viewBox="0 0 480 150" width="100%" role="img" aria-label="Median price by room type"></svg>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>Location sets the premium</h3>
+    <p class="cap">Median nightly price by neighbourhood. The bar marks the middle 50% of prices (25th to 75th percentile) and the dot marks the median.</p>
+    <svg id="ch-hood" viewBox="0 0 900 560" width="100%" role="img" aria-label="Median price by neighbourhood"></svg>
+  </div>
+  <div class="panel">
+    <h3>Data we would add next</h3>
+    <p>This summary file has no bedrooms, bathrooms, guest capacity, amenities or review scores. Titles give a bedroom count for only <span class="num" id="beds-share">39%</span> of listings. The detailed Inside Airbnb export (<span class="mono">listings.csv.gz</span>) and <span class="mono">calendar.csv</span> would add those attributes plus occupancy and seasonality. That is the biggest lever for accuracy.</p>
+  </div>
+</section>
+
+<!-- ============ 2. FEATURES ============ -->
+<section class="block" id="features" aria-labelledby="feat-h">
+  <div class="sec-head">
+    <span class="step-no">Step 2</span>
+    <h2 id="feat-h">Feature engineering</h2>
+    <p>Every feature is something a host can answer about their own listing. That is why the calculator can ask for exactly the same inputs the models were trained on.</p>
+  </div>
+  <div class="feat-list">
+    <div class="feat"><code>bedrooms, bedrooms_known</code><span>Parsed from the title ("3BR", "2 bedroom", "Studio" = 0). When the title doesn't say, the value is set to 1 and flagged.</span></div>
+    <div class="feat"><code>private_room, hotel_room, shared_room</code><span>Room type as yes/no columns. Entire home is the reference.</span></div>
+    <div class="feat"><code>log_min_nights, monthly</code><span>log(1 + minimum nights) and a flag for 28+ nights</span></div>
+    <div class="feat"><code>log_reviews, reviews_per_month, reviews_ltm</code><span>Total, monthly-rate and last-12-month reviews</span></div>
+    <div class="feat"><code>log_host_listings</code><span>How many listings the host runs (log scale)</span></div>
+    <div class="feat"><code>availability_365</code><span>Nights the calendar is open in the next year</span></div>
+    <div class="feat"><code>licensed, exempt</code><span>Status of the Boston short-term-rental license</span></div>
+    <div class="feat"><code>dist_km, latitude, longitude</code><span>Distance to Boston Common and raw coordinates</span></div>
+    <div class="feat"><code>kw_parking, kw_luxury, kw_view, kw_amenities, kw_managed</code><span>Amenity and positioning keywords in the title</span></div>
+    <div class="feat"><code>nb_* (26)</code><span>One-hot neighbourhood</span></div>
+  </div>
+  <div class="panel">
+    <h3>Evaluation set-up</h3>
+    <ul class="plain">
+      <li><strong>80/20 split:</strong> <span class="num" id="n-train">2,784</span> listings train the models and <span class="num" id="n-test">696</span> are held back. The test set is scored only once, at the end.</li>
+      <li><strong>5-fold cross-validation</strong> on the training set for tuning and to check that results are stable.</li>
+      <li><strong>Metrics in dollars:</strong> MAE (average $ off per night), RMSE (penalises big misses), R² on log price, MAPE, and the share of listings priced within ±20%.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ 3. MODELS ============ -->
+<section class="block" id="models" aria-labelledby="models-h">
+  <div class="sec-head">
+    <span class="step-no">Step 3</span>
+    <h2 id="models-h">Five ways to predict a price</h2>
+    <p>The methods range from a simple rule of thumb to ensembles of hundreds of trees. Each one makes a different assumption about how price relates to the features.</p>
+  </div>
+  <div class="models">
+    <div class="model" style="--c: var(--m-base)">
+      <h3>Baseline</h3>
+      <p>The rule of thumb: charge the median of listings with the same neighbourhood and room type. Any real model has to beat it.</p>
+      <div class="formula">price = median(hood, room)</div>
+      <dl><dt>Learns</dt><dd>25 × 4 medians</dd><dt>Limit</dt><dd>Ignores everything else</dd></dl>
+    </div>
+    <div class="model" style="--c: var(--m-ols)">
+      <h3>Linear regression</h3>
+      <p>Ordinary least squares. log(price) is a weighted sum of features, and each weight reads as a percentage effect on price.</p>
+      <div class="formula">log p = β₀ + Σ βᵢxᵢ</div>
+      <dl><dt>Strength</dt><dd>Transparent, fast</dd><dt>Limit</dt><dd>No interactions or curves</dd></dl>
+    </div>
+    <div class="model" style="--c: var(--m-lasso)">
+      <h3>Lasso regression</h3>
+      <p>The same linear model with an L1 penalty, which shrinks weak features to exactly zero. Cross-validation picked α = <span class="num" id="alpha">0.001</span>.</p>
+      <div class="formula">min ‖y − Xβ‖² + α Σ|βᵢ|</div>
+      <dl><dt>Strength</dt><dd>Selects features itself</dd><dt>Zeroed</dt><dd id="zeroed">4 features</dd></dl>
+    </div>
+    <div class="model" style="--c: var(--m-rf)">
+      <h3>Random forest</h3>
+      <p>150 decision trees, each grown on a bootstrap sample with a random subset of features. The forest averages their answers.</p>
+      <div class="formula">p = mean(tree₁ … tree₁₅₀)</div>
+      <dl><dt>Tuned</dt><dd id="rf-params">depth 14, leaf 2</dd><dt>Strength</dt><dd>Interactions, stable</dd></dl>
+    </div>
+    <div class="model" style="--c: var(--m-gb)">
+      <h3>Gradient boosting</h3>
+      <p>Small trees built one after another, each correcting what the previous ones got wrong.</p>
+      <div class="formula">p = f₀ + η Σ treeₖ</div>
+      <dl><dt>Tuned</dt><dd id="gb-params">600 trees, depth 4</dd><dt>Limit</dt><dd>Sensitive to tuning</dd></dl>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4. COMPARISON ============ -->
+<section class="block" id="compare" aria-labelledby="cmp-h">
+  <div class="sec-head">
+    <span class="step-no">Step 4</span>
+    <h2 id="cmp-h">How the methods compare</h2>
+    <p>All five were scored on the same <span class="num" id="n-test2">696</span> held-out listings that no model saw during training or tuning.</p>
+  </div>
+  <div class="panel">
+    <div class="table-scroll">
+      <table id="tbl-metrics">
+        <thead><tr><th>Model</th><th class="num">CV RMSE (log)</th><th class="num">Test MAE</th><th class="num">Test RMSE</th><th class="num">R² (log)</th><th class="num">MAPE</th><th class="num">Within ±20%</th><th class="num">Fit time</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="panel">
+      <h3>Average error per night</h3>
+      <p class="cap">Test MAE in dollars. Lower is better.</p>
+      <svg id="ch-mae" viewBox="0 0 480 220" width="100%" role="img" aria-label="Test MAE by model"></svg>
+    </div>
+    <div class="panel">
+      <h3>Stable across folds</h3>
+      <p class="cap">RMSE on log price in each of the 5 cross-validation folds. Tight clusters mean results don't depend on a lucky split.</p>
+      <svg id="ch-cv" viewBox="0 0 480 220" width="100%" role="img" aria-label="Cross-validation scores by model"></svg>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="panel">
+      <h3>Predicted vs actual</h3>
+      <p class="cap">Each dot is a test listing (log axes). The closer to the diagonal, the better.</p>
+      <div class="tabs" id="scatter-tabs"></div>
+      <svg id="ch-scatter" viewBox="0 0 440 340" width="100%" role="img" aria-label="Predicted versus actual price"></svg>
+    </div>
+    <div class="panel">
+      <h3>What drives price</h3>
+      <p class="cap">Permutation importance for the random forest: how much test error rises when a feature is shuffled.</p>
+      <svg id="ch-imp" viewBox="0 0 440 360" width="100%" role="img" aria-label="Feature importance"></svg>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>Why the methods differ</h3>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th></th><th>Linear regression</th><th>Lasso</th><th>Random forest</th><th>Gradient boosting</th></tr></thead>
+        <tbody>
+          <tr><th>Shape</th><td>Straight-line, additive</td><td>Straight-line, additive</td><td>Any shape, with interactions</td><td>Any shape, with interactions</td></tr>
+          <tr><th>Feature selection</th><td>None</td><td>Automatic (zeroes weak features)</td><td>Implicit, through splits</td><td>Implicit, through splits</td></tr>
+          <tr><th>Overfitting control</th><td>None</td><td>α penalty</td><td>Bagging, leaf size, depth</td><td>Learning rate, depth, subsampling</td></tr>
+          <tr><th>Explains itself</th><td>Coefficient = % effect</td><td>Same, with fewer terms</td><td>Feature importance</td><td>Feature importance</td></tr>
+          <tr><th>Tuning effort</th><td>None</td><td>One value (α)</td><td>Low</td><td>High</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5. VERDICT ============ -->
+<section class="block" id="verdict" aria-labelledby="ver-h">
+  <div class="sec-head">
+    <span class="step-no">Step 5</span>
+    <h2 id="ver-h">Which method fits pricing best</h2>
+  </div>
+  <div class="verdict">
+    <div class="call">
+      <span class="label">Recommendation</span>
+      <h3>Random forest sets the price; Lasso explains it.</h3>
+      <ol class="reasons">
+        <li><strong>Most accurate.</strong> Random forest had the lowest cross-validated error and the lowest test MAE (<span class="num" id="v-rf-mae">$86</span>/night). That is <span class="num" id="v-improve">33%</span> less error than the neighbourhood-median rule of thumb.</li>
+        <li><strong>Captures interactions.</strong> A monthly minimum stay cuts the price of an entire home in Back Bay much more than a private room in Mattapan. Linear models can't represent that without hand-built interaction terms.</li>
+        <li><strong>Stable and low-maintenance.</strong> Gradient boosting comes within a dollar or two, but it needs more tuning and takes about 9× longer to train. The forest varies less from fold to fold.</li>
+        <li><strong>Lasso is kept for explanation.</strong> Lasso is about 20% less accurate, but its coefficients turn into plain statements such as "a private room is about 50% cheaper", which hosts trust. The calculator uses it for "Why this price".</li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h3>Linear vs Lasso: why they tie</h3>
+      <p>With 48 features and about 2,800 training listings there is little overfitting for Lasso to fix, so the best α is tiny and the two models score almost the same. Lasso still removed <span id="v-zeroed">4</span> neighbourhood dummies whose prices match the city average. The model gets simpler and no accuracy is lost.</p>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>Limits and next steps</h3>
+    <ul class="plain">
+      <li><strong>Asking price, not booked price.</strong> The models learn what hosts ask. Adding calendar occupancy would let us optimise revenue instead of matching the market.</li>
+      <li><strong>Missing property detail.</strong> Bathrooms, capacity, amenities and review scores from the detailed export would cut the error further. Today, just under half of test listings are priced within ±20%.</li>
+      <li><strong>One snapshot.</strong> Boston prices peak around graduation, the marathon and fall foliage. A calendar-based model would add date effects.</li>
+      <li><strong>Retrain each quarter</strong> on the new Inside Airbnb release.</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <div><strong>Reproduce it.</strong> Run <code>notebooks/boston_airbnb_pricing.ipynb</code> to train, compare and export the models to <code>interface/data.js</code>. <code>node scripts/verify_js.js</code> checks that the browser calculator matches the Python models.</div>
+  <div>Data: Inside Airbnb, Boston snapshot. Model metrics come from the notebook run and are not hand-entered.</div>
+</footer>
+</main>
+
+<script src="pricing.js"></script>
+<script src="data.js"></script>
+<script>
+(function () {
+  "use strict";
+  var P = window.PRICING;
+  if (!P) { document.getElementById("out-price").textContent = "Model data failed to load."; return; }
+  var E = PricingEngine.create(P);
+  var NS = "http://www.w3.org/2000/svg";
+  var COLOR = { "Baseline": "var(--m-base)", "Linear Regression": "var(--m-ols)", "Lasso": "var(--m-lasso)", "Random Forest": "var(--m-rf)", "Gradient Boosting": "var(--m-gb)" };
+  var ORDER = ["Baseline", "Linear Regression", "Lasso", "Random Forest", "Gradient Boosting"];
+  var fmt$ = function (v) { return "$" + Math.round(v).toLocaleString("en-US"); };
+  var $ = function (id) { return document.getElementById(id); };
+
+  function el(tag, attrs, parent, text) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function clear(svg) { while (svg.firstChild) svg.removeChild(svg.firstChild); return svg; }
+  function logScale(d0, d1, r0, r1) { var a = Math.log(d0), b = Math.log(d1); return function (v) { return r0 + (Math.log(v) - a) / (b - a) * (r1 - r0); }; }
+  function linScale(d0, d1, r0, r1) { return function (v) { return r0 + (v - d0) / (d1 - d0) * (r1 - r0); }; }
+
+  /* ---------- static numbers from the notebook ---------- */
+  var M = P.meta, metrics = {};
+  P.metrics.forEach(function (m) { metrics[m.model] = m; });
+  var best = metrics[M.best];
+  $("f-rows").textContent = M.rows_model.toLocaleString("en-US");
+  $("f-feat").textContent = M.n_features;
+  $("f-mae").textContent = fmt$(best["MAE_$"]);
+  $("f-mae-k").textContent = "average error per night (" + M.best.toLowerCase() + "), " + Math.round(M.baseline_improvement * 100) + "% below the rule of thumb";
+  $("n-train").textContent = M.n_train.toLocaleString("en-US");
+  $("n-test").textContent = $("n-test2").textContent = M.n_test.toLocaleString("en-US");
+  $("alpha").textContent = M.alpha.toPrecision(2);
+  $("zeroed").textContent = M.lasso_zeroed.length + " of " + M.n_features + " features";
+  $("v-zeroed").textContent = M.lasso_zeroed.length;
+  $("rf-params").textContent = "depth " + M.rf_params.max_depth + ", leaf " + M.rf_params.min_samples_leaf + ", " + Math.round(M.rf_params.max_features * 100) + "% features/split";
+  $("gb-params").textContent = M.gb_params.n_estimators + " trees, depth " + M.gb_params.max_depth + ", η " + M.gb_params.learning_rate;
+  $("v-rf-mae").textContent = fmt$(metrics["Random Forest"]["MAE_$"]);
+  $("v-improve").textContent = Math.round(M.baseline_improvement * 100) + "%";
+  $("beds-share").textContent = Math.round(M.bedrooms_known_share * 100) + "%";
+
+  /* ---------- metrics table ---------- */
+  var tb = document.querySelector("#tbl-metrics tbody");
+  ORDER.forEach(function (n) {
+    var m = metrics[n], tr = document.createElement("tr");
+    if (n === M.best) tr.className = "best";
+    tr.innerHTML = "<td><span class='swatch' style='background:" + COLOR[n] + "'></span>" + n + (n === M.best ? " ★" : "") + "</td>" +
+      "<td class='num'>" + m.CV_RMSE_log.toFixed(3) + " ± " + m.CV_std.toFixed(3) + "</td>" +
+      "<td class='num'>" + fmt$(m["MAE_$"]) + "</td><td class='num'>" + fmt$(m["RMSE_$"]) + "</td>" +
+      "<td class='num'>" + m.R2_log.toFixed(3) + "</td><td class='num'>" + m["MAPE_%"].toFixed(1) + "%</td>" +
+      "<td class='num'>" + m["within_20%"].toFixed(1) + "%</td><td class='num'>" + m.train_time_s.toFixed(1) + " s</td>";
+    tb.appendChild(tr);
+  });
+
+  /* ---------- charts ---------- */
+  function hbar(svg, rows, opt) {
+    clear(svg);
+    var W = opt.w, L = opt.left, R = opt.right || 60, rowH = opt.rowH || 28, top = opt.top || 6;
+    var max = opt.max || Math.max.apply(null, rows.map(function (r) { return r.v; }));
+    var x = linScale(0, max, L, W - R);
+    rows.forEach(function (r, i) {
+      var y = top + i * rowH;
+      el("text", { x: L - 8, y: y + rowH / 2 + 4, "text-anchor": "end", "class": r.strong ? "ink" : "" }, svg, r.label);
+      el("rect", { x: L, y: y + 5, width: Math.max(1, x(r.v) - L), height: rowH - 10, fill: r.color, rx: 2 }, svg);
+      el("text", { x: x(r.v) + 6, y: y + rowH / 2 + 4, "class": "ink" }, svg, r.text);
+    });
+  }
+
+  // histogram (log-spaced bins)
+  (function () {
+    var svg = $("ch-hist"), h = P.price_hist, W = 480, H = 200, L = 34, B = 26, T = 8;
+    var x = logScale(h.edges[0], h.edges[h.edges.length - 1], L, W - 10);
+    var maxC = Math.max.apply(null, h.counts), y = linScale(0, maxC, H - B, T);
+    [0, 100, 200, 300].forEach(function (v) { if (v <= maxC) { el("line", { x1: L, x2: W - 10, y1: y(v), y2: y(v), "class": "grid" }, svg); el("text", { x: L - 6, y: y(v) + 4, "text-anchor": "end" }, svg, v); } });
+    h.counts.forEach(function (c, i) {
+      el("rect", { x: x(h.edges[i]) + 0.5, y: y(c), width: Math.max(0.5, x(h.edges[i + 1]) - x(h.edges[i]) - 1), height: y(0) - y(c), fill: "var(--harbor)" }, svg);
+    });
+    [50, 100, 200, 500, 1000, 2000].forEach(function (v) { el("text", { x: x(v), y: H - 8, "text-anchor": "middle" }, svg, "$" + v); });
+  })();
+
+  // room type
+  (function () {
+    var rs = P.room_stats.slice().sort(function (a, b) { return b.median - a.median; });
+    hbar($("ch-room"), rs.map(function (r) { return { label: r.room_type, v: r.median, text: fmt$(r.median) + "  · n=" + r.count, color: r.room_type === "Entire home/apt" ? "var(--brick)" : "var(--muted)" }; }), { w: 480, left: 112, right: 120, rowH: 34 });
+  })();
+
+  // neighbourhood dot + IQR
+  (function () {
+    var svg = $("ch-hood"), hs = P.hood_stats.slice().sort(function (a, b) { return b.median - a.median; });
+    var W = 900, L = 180, R = 70, rowH = 21.5, T = 8;
+    svg.setAttribute("viewBox", "0 0 " + W + " " + (T + hs.length * rowH + 28));
+    var x = linScale(0, 800, L, W - R);
+    [0, 200, 400, 600, 800].forEach(function (v) {
+      el("line", { x1: x(v), x2: x(v), y1: T, y2: T + hs.length * rowH, "class": "grid" }, svg);
+      el("text", { x: x(v), y: T + hs.length * rowH + 18, "text-anchor": "middle" }, svg, "$" + v);
+    });
+    hs.forEach(function (h, i) {
+      var y = T + i * rowH + rowH / 2;
+      el("text", { x: L - 10, y: y + 4, "text-anchor": "end", "class": "ink" }, svg, h.neighbourhood);
+      el("line", { x1: x(h.q25), x2: x(Math.min(h.q75, 800)), y1: y, y2: y, stroke: "var(--harbor)", "stroke-width": 6, "stroke-linecap": "round", opacity: 0.35 }, svg);
+      el("circle", { cx: x(h.median), cy: y, r: 5, fill: "var(--brick)" }, svg);
+      el("text", { x: W - R + 8, y: y + 4 }, svg, fmt$(h.median) + " · " + h.count);
+    });
+  })();
+
+  // MAE bars
+  hbar($("ch-mae"), ORDER.map(function (n) { return { label: n, v: metrics[n]["MAE_$"], text: fmt$(metrics[n]["MAE_$"]), color: COLOR[n], strong: n === M.best }; }), { w: 480, left: 130, right: 56, rowH: 40, top: 6 });
+
+  // CV strip plot
+  (function () {
+    var svg = $("ch-cv"), W = 480, L = 130, R = 20, rowH = 40, T = 6;
+    var all = []; ORDER.forEach(function (n) { all = all.concat(P.cv_scores[n]); });
+    var lo = Math.floor(Math.min.apply(null, all) * 20) / 20, hi = Math.ceil(Math.max.apply(null, all) * 20) / 20;
+    var x = linScale(lo, hi, L, W - R);
+    for (var v = lo; v <= hi + 1e-9; v += 0.05) {
+      el("line", { x1: x(v), x2: x(v), y1: T, y2: T + 5 * rowH, "class": "grid" }, svg);
+      el("text", { x: x(v), y: T + 5 * rowH + 14, "text-anchor": "middle" }, svg, v.toFixed(2));
+    }
+    ORDER.forEach(function (n, i) {
+      var y = T + i * rowH + rowH / 2, s = P.cv_scores[n], mean = s.reduce(function (a, b) { return a + b; }, 0) / s.length;
+      el("text", { x: L - 8, y: y + 4, "text-anchor": "end", "class": n === M.best ? "ink" : "" }, svg, n);
+      s.forEach(function (v) { el("circle", { cx: x(v), cy: y, r: 4.5, fill: COLOR[n], opacity: 0.75 }, svg); });
+      el("line", { x1: x(mean), x2: x(mean), y1: y - 10, y2: y + 10, stroke: "var(--ink)", "stroke-width": 2 }, svg);
+    });
+  })();
+
+  // scatter with tabs
+  (function () {
+    var tabs = $("scatter-tabs"), cur = M.best;
+    function draw() {
+      var svg = clear($("ch-scatter")), W = 440, H = 340, L = 50, B = 34, T = 10, R = 12;
+      var x = logScale(30, 2000, L, W - R), y = logScale(30, 2000, H - B, T);
+      [50, 100, 200, 500, 1000, 2000].forEach(function (v) {
+        el("line", { x1: x(v), x2: x(v), y1: T, y2: H - B, "class": "grid" }, svg);
+        el("line", { x1: L, x2: W - R, y1: y(v), y2: y(v), "class": "grid" }, svg);
+        el("text", { x: x(v), y: H - B + 16, "text-anchor": "middle" }, svg, "$" + v);
+        el("text", { x: L - 6, y: y(v) + 4, "text-anchor": "end" }, svg, "$" + v);
+      });
+      el("text", { x: (L + W) / 2, y: H - 2, "text-anchor": "middle" }, svg, "actual price");
+      el("text", { x: 12, y: (T + H - B) / 2, "text-anchor": "middle", transform: "rotate(-90 12 " + (T + H - B) / 2 + ")" }, svg, "predicted");
+      var d = P.test_scatter[cur], c = function (v) { return Math.min(2000, Math.max(30, v)); };
+      d.actual.forEach(function (a, i) { el("circle", { cx: x(c(a)), cy: y(c(d.pred[i])), r: 2.6, fill: COLOR[cur], opacity: 0.55 }, svg); });
+      el("line", { x1: x(30), y1: y(30), x2: x(2000), y2: y(2000), stroke: "var(--ink)", "stroke-dasharray": "4 4" }, svg);
+      el("text", { x: W - R - 4, y: T + 14, "text-anchor": "end", "class": "ink" }, svg, cur + " · R² " + metrics[cur].R2_log.toFixed(2));
+    }
+    ORDER.forEach(function (n) {
+      var b = document.createElement("button");
+      b.type = "button"; b.innerHTML = "<span class='swatch' style='background:" + COLOR[n] + "'></span>" + n;
+      b.setAttribute("aria-pressed", n === cur ? "true" : "false");
+      b.onclick = function () { cur = n; Array.prototype.forEach.call(tabs.children, function (t) { t.setAttribute("aria-pressed", "false"); }); b.setAttribute("aria-pressed", "true"); draw(); };
+      tabs.appendChild(b);
+    });
+    draw();
+  })();
+
+  // importance
+  var NICE = {
+    "private_room": "Private room", "hotel_room": "Hotel room", "shared_room": "Shared room", "log_min_nights": "Minimum nights",
+    "monthly": "Monthly rental (28+ nights)", "log_reviews": "Total reviews", "reviews_per_month": "Reviews per month",
+    "number_of_reviews_ltm": "Reviews in last 12 months", "log_host_listings": "Host's listing count", "availability_365": "Nights open per year",
+    "licensed": "STR license", "exempt": "License exempt", "dist_km": "Distance to Boston Common", "latitude": "Latitude", "longitude": "Longitude",
+    "bedrooms": "Bedrooms", "bedrooms_known": "Bedrooms stated in title", "kw_parking": "Parking", "kw_luxury": "Modern / renovated",
+    "kw_view": "View / rooftop", "kw_amenities": "Gym / pool / concierge", "kw_managed": "Furnished, managed brand",
+    "neighbourhood (one-hot)": "Neighbourhood"
+  };
+  var nice = function (f) { return NICE[f] || (f.indexOf("nb_") === 0 ? f.slice(3) : f); };
+  (function () {
+    var imp = Object.keys(P.importance).map(function (k) { return { k: k, v: P.importance[k] }; }).filter(function (r) { return r.v > 0; }).slice(0, 12);
+    $("ch-imp").setAttribute("viewBox", "0 0 440 " + (imp.length * 28 + 12));
+    hbar($("ch-imp"), imp.map(function (r) { return { label: nice(r.k), v: r.v, text: r.v.toFixed(3), color: "var(--harbor)" }; }), { w: 440, left: 170, right: 50, rowH: 28 });
+  })();
+
+  /* ---------- map ---------- */
+  var hoodStats = {};
+  P.hood_stats.forEach(function (h) { hoodStats[h.neighbourhood] = h; });
+  var mapSvg = $("map"), lat0 = 42.32, kx = Math.cos(lat0 * Math.PI / 180), SCALE = 2400;
+  var bounds = { minX: -71.195, maxX: -70.98, minY: 42.225, maxY: 42.40 };
+  var px = function (lon) { return (lon - bounds.minX) * kx * SCALE; };
+  var py = function (lat) { return (bounds.maxY - lat) * SCALE; };
+  var mapW = px(bounds.maxX), mapH = py(bounds.minY);
+  mapSvg.setAttribute("viewBox", "0 0 " + mapW.toFixed(1) + " " + mapH.toFixed(1));
+  var medians = P.hood_stats.map(function (h) { return h.median; });
+  var mLo = Math.min.apply(null, medians), mHi = Math.max.apply(null, medians);
+  $("ramp").style.background = "linear-gradient(90deg, color-mix(in oklab, var(--brick) 12%, var(--surface)), var(--brick))";
+  $("ramp-lo").textContent = fmt$(mLo); $("ramp-hi").textContent = fmt$(mHi);
+  var paths = {};
+  P.geo.features.forEach(function (f) {
+    var name = f.properties.name, d = "";
+    f.geometry.coordinates.forEach(function (poly) {
+      poly[0].forEach(function (p, i) { d += (i ? "L" : "M") + px(p[0]).toFixed(1) + "," + py(p[1]).toFixed(1); });
+      d += "Z";
+    });
+    var st = hoodStats[name], pct = st ? 12 + 88 * (Math.log(st.median) - Math.log(mLo)) / (Math.log(mHi) - Math.log(mLo)) : 0;
+    var p = el("path", { d: d, fill: st ? "color-mix(in oklab, var(--brick) " + pct.toFixed(0) + "%, var(--surface))" : "var(--line)" }, mapSvg);
+    el("title", {}, p, name + (st ? " · median " + fmt$(st.median) + " · " + st.count + " listings" : " · no listings"));
+    if (!st) p.setAttribute("class", "disabled");
+    p.dataset.name = name;
+    (paths[name] = paths[name] || []).push(p);
+  });
+  var pin = el("g", { "pointer-events": "none" }, mapSvg);
+  el("circle", { r: 9, fill: "var(--ink)", opacity: 0.18 }, pin);
+  el("circle", { r: 4.5, fill: "var(--ink)", stroke: "var(--surface)", "stroke-width": 1.5 }, pin);
+
+  mapSvg.addEventListener("click", function (ev) {
+    var t = ev.target;
+    if (t.tagName !== "path" || !hoodStats[t.dataset.name]) return;
+    var pt = mapSvg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+    var loc = pt.matrixTransform(mapSvg.getScreenCTM().inverse());
+    state.lon = loc.x / (kx * SCALE) + bounds.minX;
+    state.lat = bounds.maxY - loc.y / SCALE;
+    state.neighbourhood = t.dataset.name;
+    $("in-hood").value = state.neighbourhood;
+    update();
+  });
+
+  /* ---------- form state ---------- */
+  var hoodSel = $("in-hood");
+  P.neighbourhoods.forEach(function (n) {
+    if (!hoodStats[n]) return;
+    var o = document.createElement("option"); o.value = n; o.textContent = n; hoodSel.appendChild(o);
+  });
+  var state = {};
+  var KW = ["kw_parking", "kw_luxury", "kw_view", "kw_amenities", "kw_managed"];
+
+  function setRoom(v) {
+    Array.prototype.forEach.call($("in-room").children, function (b) { b.setAttribute("aria-pressed", b.dataset.v === v ? "true" : "false"); });
+    state.room_type = v;
+  }
+  function placeAtHood(n) { state.neighbourhood = n; state.lat = hoodStats[n].lat; state.lon = hoodStats[n].lon; }
+  function readForm() {
+    state.bedrooms = +$("in-beds").value;
+    state.minimum_nights = Math.max(1, +$("in-min").value || 1);
+    state.availability_365 = +$("in-avail").value;
+    state.number_of_reviews = Math.max(0, +$("in-rev").value || 0);
+    state.reviews_per_month = Math.max(0, +$("in-rpm").value || 0);
+    state.number_of_reviews_ltm = Math.max(0, +$("in-ltm").value || 0);
+    state.host_listings = Math.max(1, +$("in-host").value || 1);
+    state.license = $("in-lic").value;
+    state.kw = {}; KW.forEach(function (k) { state.kw[k] = $(k).checked; });
+    $("avail-v").textContent = state.availability_365;
+  }
+
+  var PRESETS = {
+    "new": { hood: "Fenway", room: "Entire home/apt", beds: 0, min: 2, avail: 300, rev: 0, rpm: 0, ltm: 0, host: 1, lic: "licensed", kw: ["kw_luxury"] },
+    "room": { hood: "Jamaica Plain", room: "Private room", beds: 1, min: 1, avail: 250, rev: 80, rpm: 2.5, ltm: 25, host: 1, lic: "licensed", kw: [] },
+    "monthly": { hood: "Back Bay", room: "Entire home/apt", beds: 1, min: 32, avail: 330, rev: 12, rpm: 0.4, ltm: 3, host: 40, lic: "none", kw: ["kw_managed", "kw_amenities"] },
+    "start": { hood: "South End", room: "Entire home/apt", beds: 2, min: 2, avail: 180, rev: 25, rpm: 1.5, ltm: 10, host: 1, lic: "licensed", kw: ["kw_luxury"] }
+  };
+  function applyPreset(k) {
+    var p = PRESETS[k];
+    hoodSel.value = p.hood; placeAtHood(p.hood); setRoom(p.room);
+    $("in-beds").value = p.beds; $("in-min").value = p.min; $("in-avail").value = p.avail;
+    $("in-rev").value = p.rev; $("in-rpm").value = p.rpm; $("in-ltm").value = p.ltm; $("in-host").value = p.host; $("in-lic").value = p.lic;
+    KW.forEach(function (kw) { $(kw).checked = p.kw.indexOf(kw) >= 0; });
+    update();
+  }
+
+  /* ---------- outputs ---------- */
+  function drawRange(res) {
+    var svg = clear($("range-bar")), W = 400, lo = res.low, hi = res.high, med = hoodStats[state.neighbourhood].median;
+    var a = Math.min(lo, med) * 0.85, b = Math.max(hi, med) * 1.1, x = logScale(a, b, 8, W - 8);
+    el("rect", { x: 8, y: 22, width: W - 16, height: 6, rx: 3, fill: "var(--line)" }, svg);
+    el("rect", { x: x(lo), y: 18, width: x(hi) - x(lo), height: 14, rx: 3, fill: "var(--harbor)", opacity: 0.3 }, svg);
+    el("rect", { x: x(res[res.best]) - 1.5, y: 12, width: 3, height: 26, fill: "var(--harbor)" }, svg);
+    el("path", { d: "M" + x(med) + ",40 l-5,8 h10 z", fill: "var(--brick)" }, svg);
+    el("text", { x: x(lo), y: 10, "text-anchor": "start" }, svg, fmt$(lo));
+    el("text", { x: x(hi), y: 10, "text-anchor": "end" }, svg, fmt$(hi));
+    var mx = Math.min(Math.max(x(med), 60), W - 60);
+    el("text", { x: mx, y: 54, "text-anchor": "middle", fill: "var(--brick)", style: "fill: var(--brick)" }, svg, "area median " + fmt$(med));
+  }
+
+  function drawModels(res) {
+    var rows = ORDER.map(function (n) { return { label: n + (n === res.best ? " ★" : ""), v: res[n], text: fmt$(res[n]), color: COLOR[n], strong: n === res.best }; });
+    var max = Math.max.apply(null, rows.map(function (r) { return r.v; })) * 1.05;
+    hbar($("out-models"), rows, { w: 420, left: 140, right: 56, rowH: 32, max: max });
+  }
+
+  function drawDrivers(x) {
+    var d = E.lassoDrivers(x), grouped = {};
+    d.forEach(function (r) {
+      var key = r.feature.indexOf("nb_") === 0 ? "Location: " + state.neighbourhood :
+        (r.feature === "latitude" || r.feature === "longitude" || r.feature === "dist_km") ? "Exact position" :
+        (r.feature === "log_min_nights" || r.feature === "monthly") ? "Minimum-stay rule" :
+        (r.feature === "log_reviews" || r.feature === "reviews_per_month" || r.feature === "number_of_reviews_ltm") ? "Review history" :
+        (r.feature === "bedrooms" || r.feature === "bedrooms_known") ? "Bedrooms" :
+        (r.feature === "licensed" || r.feature === "exempt") ? "License status" :
+        (r.feature === "private_room" || r.feature === "hotel_room" || r.feature === "shared_room") ? "Room type" : nice(r.feature);
+      grouped[key] = (grouped[key] || 0) + r.logpts;
+    });
+    var rows = Object.keys(grouped).map(function (k) { return { k: k, v: grouped[k] }; })
+      .filter(function (r) { return Math.abs(r.v) > 0.01; })
+      .sort(function (a, b) { return Math.abs(b.v) - Math.abs(a.v); }).slice(0, 7);
+    var maxAbs = Math.max.apply(null, rows.map(function (r) { return Math.abs(Math.exp(r.v) - 1); }).concat([0.1]));
+    var box = $("out-drivers"); box.innerHTML = "";
+    rows.forEach(function (r) {
+      var pct = (Math.exp(r.v) - 1) * 100, div = document.createElement("div");
+      div.className = "driver";
+      div.innerHTML = "<div class='name'><span></span><span class='bar'></span></div><span class='val'></span>";
+      div.querySelector(".name span").textContent = r.k;
+      var bar = div.querySelector(".bar");
+      bar.style.width = Math.max(2, Math.abs(pct / 100) / maxAbs * 100) + "%";
+      bar.style.background = pct >= 0 ? "var(--good)" : "var(--brick)";
+      div.querySelector(".val").textContent = (pct >= 0 ? "+" : "−") + Math.abs(pct).toFixed(0) + "%";
+      box.appendChild(div);
+    });
+  }
+
+  function drawHoods() {
+    var rows = Object.keys(hoodStats).map(function (n) {
+      var L = Object.assign({}, state, { neighbourhood: n, lat: hoodStats[n].lat, lon: hoodStats[n].lon });
+      return { n: n, v: Math.exp(E.predictLog[M.best](E.features(L))) };
+    }).sort(function (a, b) { return b.v - a.v; });
+    var svg = $("out-hoods");
+    svg.setAttribute("viewBox", "0 0 420 " + (rows.length * 20 + 8));
+    hbar(svg, rows.map(function (r) { return { label: r.n, v: r.v, text: fmt$(r.v), color: r.n === state.neighbourhood ? "var(--brick)" : "var(--m-rf)", strong: r.n === state.neighbourhood }; }), { w: 420, left: 150, right: 52, rowH: 20, top: 4 });
+  }
+
+  function update() {
+    readForm();
+    var res = E.priceAll(state), x = E.features(state);
+    $("out-price").innerHTML = fmt$(res[res.best]) + " <small>/ night</small>";
+    $("out-model-label").textContent = "Recommended nightly price · " + res.best.toLowerCase();
+    $("out-range-note").textContent = "80% of comparable listings would sit between " + fmt$(res.low) + " and " + fmt$(res.high) + " (based on the model's errors on unseen listings). The red marker shows the median for " + state.neighbourhood + ".";
+    Object.keys(paths).forEach(function (n) { paths[n].forEach(function (p) { p.setAttribute("class", (hoodStats[n] ? "" : "disabled") + (n === state.neighbourhood ? " sel" : "")); if (n === state.neighbourhood) p.parentNode.insertBefore(p, pin); }); });
+    pin.setAttribute("transform", "translate(" + px(state.lon).toFixed(1) + "," + py(state.lat).toFixed(1) + ")");
+    drawRange(res); drawModels(res); drawDrivers(x); drawHoods();
+  }
+
+  /* ---------- wire up ---------- */
+  hoodSel.addEventListener("change", function () { placeAtHood(hoodSel.value); update(); });
+  Array.prototype.forEach.call($("in-room").children, function (b) { b.addEventListener("click", function () { setRoom(b.dataset.v); update(); }); });
+  $("calc-form").addEventListener("input", function (e) { if (e.target !== hoodSel) update(); });
+  $("calc-form").addEventListener("submit", function (e) { e.preventDefault(); });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-preset]"), function (b) { b.addEventListener("click", function () { applyPreset(b.dataset.preset); }); });
+  applyPreset("start");
+})();
+</script>
+</body>
+</html>
