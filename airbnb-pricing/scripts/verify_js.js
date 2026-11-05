@@ -3,22 +3,23 @@
 const path = require("path");
 global.window = {};
 require(path.join(__dirname, "../interface/data.js"));
-const P = window.PRICING;
-const engine = require(path.join(__dirname, "../interface/pricing.js")).create(P);
+require(path.join(__dirname, "../interface/models.js"));
+const P = window.PRICING, MP = window.PRICING_MODELS;
+const engine = require(path.join(__dirname, "../interface/pricing.js")).create(P, MP);
 
 let worst = 0;
 for (const name of Object.keys(engine.predictLog)) {
   let maxErr = 0;
-  P.reference.X.forEach((x, i) => {
-    const err = Math.abs(engine.predictLog[name](x) - P.reference.pred[name][i]);
+  MP.snapshot_reference.X.forEach((x, i) => {
+    const err = Math.abs(engine.predictLog[name](x) - MP.snapshot_reference.pred[name][i]);
     maxErr = Math.max(maxErr, err);
   });
   worst = Math.max(worst, maxErr);
   console.log(`${name.padEnd(18)} max |log error| = ${maxErr.toExponential(2)}  (≈ ${((Math.exp(maxErr) - 1) * 100).toFixed(3)}% of price)`);
 }
-if (P.quarterly) {
+if (MP.quarterly) {
   let maxErr = 0;
-  P.quarterly.reference.X.forEach((x, i) => { maxErr = Math.max(maxErr, Math.abs(engine.quarterlyLog(x) - P.quarterly.reference.pred[i])); });
+  MP.quarterly_reference.X.forEach((x, i) => { maxErr = Math.max(maxErr, Math.abs(engine.quarterlyLog(x) - MP.quarterly_reference.pred[i])); });
   worst = Math.max(worst, maxErr);
   console.log(`${"Quarterly RF".padEnd(18)} max |log error| = ${maxErr.toExponential(2)}  (≈ ${((Math.exp(maxErr) - 1) * 100).toFixed(3)}% of price)`);
 }

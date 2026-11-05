@@ -3,7 +3,7 @@
 Run:  python scripts/build_quarterly_notebook.py
 Then: jupyter nbconvert --to notebook --execute --inplace notebooks/boston_airbnb_quarterly.ipynb
 Phase 1 (notebooks/boston_airbnb_pricing.ipynb) must have been run first: this notebook adds
-a "quarterly" block to interface/data.js.
+a "quarterly" block to interface/data.js and the quarterly model to interface/models.js.
 """
 from pathlib import Path
 import nbformat as nbf
@@ -377,11 +377,15 @@ md(r"""
 md("## 9. Export to the interface")
 
 code(r"""
+FINE = {final_cols.index(c) for c in ("latitude", "longitude", "dist_km")}
+
 def export_tree(t):
     tr = t.tree_; leaf = tr.children_left == -1
     assert np.all(tr.children_left[~leaf] == np.arange(tr.node_count)[~leaf] + 1)
-    x = [float(f"{v:.6g}") if is_leaf else float(f"{th:.9g}") for v, th, is_leaf in zip(tr.value[:, 0, 0], tr.threshold, leaf)]
-    return {"f": np.where(leaf, -1, tr.feature).tolist(), "x": x, "r": np.where(leaf, 0, tr.children_right).tolist()}
+    # coordinate splits need 9 significant digits; other thresholds 6; leaf values (log price) 5
+    x = [float(f"{v:.5g}") if is_leaf else float(f"{th:.9g}" if f in FINE else f"{th:.6g}")
+         for v, th, f, is_leaf in zip(tr.value[:, 0, 0], tr.threshold, tr.feature, leaf)]
+    return {"f": np.where(leaf, -1, tr.feature).tolist(), "x": x}
 
 # refit the chosen pooled model on ALL priced rows
 w_all = np.where(P["quarter"] == "2026Q3", 2.0, 1.0) if "recency" in final_name else None
@@ -404,15 +408,21 @@ quarterly = {
     "features": final_cols,
     "band_log": [float(np.quantile(r := TE["y"] - final_model.predict(FULL_X.loc[TE.index, final_cols]), .10)), float(np.quantile(r, .90))],
     "center": CENTER, "n_zones": int(km.n_clusters),
-    "model": {"trees": [export_tree(e) for e in deploy.estimators_]},
-    "reference": {"X": FULL_X.loc[ref.index, final_cols].values.tolist(), "pred": np.round(deploy.predict(FULL_X.loc[ref.index, final_cols]), 6).tolist()},
 }
 js = (OUT / "data.js").read_text()
 bundle = json.loads(js[js.index("{"): js.rindex("}") + 1])
 bundle["quarterly"] = quarterly
 payload = json.dumps(bundle, separators=(",", ":"))
 (OUT / "data.js").write_text("window.PRICING = " + payload + ";\n")
-print(f"added 'quarterly' to interface/data.js ({len(payload) / 1e6:.2f} MB total)")
+
+mjs = (OUT / "models.js").read_text()
+mbundle = json.loads(mjs[mjs.index("{"): mjs.rindex("}") + 1])
+mbundle["quarterly"] = {"trees": [export_tree(e) for e in deploy.estimators_]}
+mbundle["quarterly_reference"] = {"X": FULL_X.loc[ref.index, final_cols].values.tolist(),
+                                  "pred": np.round(deploy.predict(FULL_X.loc[ref.index, final_cols]), 6).tolist()}
+mpayload = json.dumps(mbundle, separators=(",", ":"))
+(OUT / "models.js").write_text("window.PRICING_MODELS = " + mpayload + ";\n")
+print(f"data.js {len(payload) / 1e6:.2f} MB, models.js {len(mpayload) / 1e6:.2f} MB")
 """)
 
 nb = nbf.v4.new_notebook(); nb["cells"] = cells

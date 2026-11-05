@@ -531,7 +531,7 @@ comp.plot.barh(figsize=(7, 6), color="#3b6fb6", title=f"Same 2BR, priced by {bes
 
 md(r"""
 ## 9. Export for the portfolio interface
-The cell below refits every model on **all** cleaned data (train + test) and serialises it to `interface/data.js`:
+The cell below refits every model on **all** cleaned data (train + test) and serialises it to `interface/data.js` (metrics and chart data) and `interface/models.js` (the trained models):
 * Linear Regression and Lasso → intercept, coefficients and scaler mean/std
 * Random Forest and Gradient Boosting → compact pre-order tree arrays (feature, threshold-or-value, right child)
 * Baseline → median lookup table
@@ -541,18 +541,19 @@ The JavaScript in `interface/index.html` re-implements `build_features` and tree
 """)
 
 code(r"""
+FINE = {FEATURES.index(c) for c in ("latitude", "longitude", "dist_km")}
+
 def export_tree(t, scale=1.0):
     # Compact pre-order encoding: the left child of node i is always i+1 (sklearn depth-first builder),
-    # so we only store f (feature, -1 = leaf), x (threshold, or leaf value) and r (right-child index).
+    # so we only store f (feature, -1 = leaf) and x (threshold, or leaf value).
     tr = t.tree_
     leaf = tr.children_left == -1
     assert np.all(tr.children_left[~leaf] == np.arange(tr.node_count)[~leaf] + 1)
-    # thresholds keep 9 significant digits (lat/lon splits need them); leaf values 6
-    x = [float(f"{v * scale:.6g}") if is_leaf else float(f"{th:.9g}")
-         for v, th, is_leaf in zip(tr.value[:, 0, 0], tr.threshold, leaf)]
-    return {"f": np.where(leaf, -1, tr.feature).tolist(),
-            "x": x,
-            "r": np.where(leaf, 0, tr.children_right).tolist()}
+    # coordinate splits need 9 significant digits; other thresholds 6; leaf values (log price) 5
+    x = [float(f"{v * scale:.5g}") if is_leaf else float(f"{th:.9g}" if f in FINE else f"{th:.6g}")
+         for v, th, f, is_leaf in zip(tr.value[:, 0, 0], tr.threshold, tr.feature, leaf)]
+    # right-child indexes are not stored: the browser rebuilds them from the pre-order layout
+    return {"f": np.where(leaf, -1, tr.feature).tolist(), "x": x}
 
 def export_linear(pipe):
     m, s = pipe.named_steps["model"], pipe.named_steps["scale"]
@@ -621,13 +622,14 @@ bundle = {
     "price_hist": {"counts": hist_counts.tolist(), "edges": np.round(np.exp(hist_edges), 1).tolist()},
     "test_scatter": test_scatter,
     "geo": geo_small,
-    "models": models_json,
-    "reference": reference,
 }
 OUT.mkdir(exist_ok=True)
+# Two files: data.js (metrics, charts, map: small, loads first) and models.js (the trained trees)
 payload = json.dumps(bundle, separators=(",", ":"))
 (OUT / "data.js").write_text("window.PRICING = " + payload + ";\n")
-print(f"wrote {OUT / 'data.js'}  ({len(payload) / 1e6:.2f} MB)")
+models_payload = json.dumps({"snapshot": models_json, "snapshot_reference": reference}, separators=(",", ":"))
+(OUT / "models.js").write_text("window.PRICING_MODELS = " + models_payload + ";\n")
+print(f"wrote data.js ({len(payload) / 1e6:.2f} MB) and models.js ({len(models_payload) / 1e6:.2f} MB)")
 """)
 
 md(r"""

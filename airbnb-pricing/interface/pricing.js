@@ -4,7 +4,8 @@
 (function (root) {
   "use strict";
 
-  function create(P) {
+  /* P = window.PRICING (data.js), MP = window.PRICING_MODELS (models.js) */
+  function create(P, MP) {
     var F = P.features;
     var idx = {};
     F.forEach(function (f, i) { idx[f] = i; });
@@ -40,6 +41,20 @@
       return x;
     }
 
+    // Trees are stored in pre-order (left child of node i is i+1); rebuild right-child indexes once.
+    function prepare(T) {
+      if (T.r) return T;
+      var n = T.f.length, r = new Int32Array(n), stack = [];
+      for (var i = 0; i < n; i++) {
+        if (i > 0 && T.f[i - 1] === -1) r[stack.pop()] = i;
+        if (T.f[i] !== -1) stack.push(i);
+      }
+      T.r = r;
+      return T;
+    }
+    ["Random Forest", "Gradient Boosting"].forEach(function (n) { MP.snapshot[n].trees.forEach(prepare); });
+    if (MP.quarterly) MP.quarterly.trees.forEach(prepare);
+
     // sklearn compares float32 features against float64 thresholds
     var f32 = Math.fround;
     function tree(T, x) {
@@ -63,7 +78,7 @@
       return room in M.room ? M.room[room] : M.all;
     }
 
-    var M = P.models;
+    var M = MP.snapshot;
     // Each returns log(price)
     var predictLog = {
       "Baseline": function (x) { return baseline(M["Baseline"], x); },
@@ -103,7 +118,8 @@
 
     /* Phase 2: pooled quarterly model (snapshot features + time + zone).
        Extra listing fields: quarter ("2026Q2" | "2026Q3"), tenure_q (0-3), days_since_review. */
-    var Q = P.quarterly || null;
+    var Q = P.quarterly && MP.quarterly ? P.quarterly : null;
+    var QT = Q ? MP.quarterly.trees : null;
     function quarterlyFeatures(L) {
       var x = features(L);
       var dist = x[idx.dist_km];
@@ -118,7 +134,7 @@
       return Q.features.map(function (f) { return f in extra ? extra[f] : x[idx[f]]; });
     }
     function quarterlyLog(xq) {
-      var s = 0, T = Q.model.trees;
+      var s = 0, T = QT;
       for (var i = 0; i < T.length; i++) s += tree(T[i], xq);
       return s / T.length;
     }

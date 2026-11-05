@@ -698,8 +698,8 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
 (function () {
   "use strict";
   var P = window.PRICING;
-  if (!P) { document.getElementById("out-price").textContent = "Model data failed to load."; return; }
-  var E = PricingEngine.create(P);
+  if (!P) { document.getElementById("out-price").textContent = "The page data didn't load. Reload the page to try again."; return; }
+  var E = null;   // pricing engine, created once models.js has loaded
   var NS = "http://www.w3.org/2000/svg";
   var COLOR = { "Baseline": "var(--m-base)", "Linear Regression": "var(--m-ols)", "Lasso": "var(--m-lasso)", "Random Forest": "var(--m-rf)", "Gradient Boosting": "var(--m-gb)" };
   var ORDER = ["Baseline", "Linear Regression", "Lasso", "Random Forest", "Gradient Boosting"];
@@ -1122,6 +1122,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
 
   function update() {
     readForm();
+    if (!E) return;
     var res = E.priceAll(state), x = E.features(state), q = E.priceQuarter(state);
     $("out-price").innerHTML = fmt$(q.price) + " <small>/ night</small>";
     $("out-model-label").textContent = "Recommended nightly price · " + QLABEL[state.quarter] + " · quarterly model";
@@ -1144,10 +1145,32 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
   Array.prototype.forEach.call($("in-room").children, function (b) { b.addEventListener("click", function () { setRoom(b.dataset.v); update(); }); });
   Array.prototype.forEach.call($("in-q").children, function (b) { b.addEventListener("click", function () { setQuarter(b.dataset.v); update(); }); });
   setQuarter("2026Q3");
+
+  /* ---------- load the trained models (large file) without blocking the page ---------- */
+  function loadModels() {
+    var out = $("out-price");
+    out.innerHTML = "<span class='loading'>Loading the pricing models (about 2 MB)…</span>";
+    var sc = document.createElement("script");
+    sc.src = "models.js";
+    sc.onload = function () {
+      try { E = PricingEngine.create(P, window.PRICING_MODELS); update(); }
+      catch (err) { fail("The pricing models loaded but couldn't start."); }
+    };
+    sc.onerror = function () { fail("The pricing models didn't load. Check your connection and try again."); };
+    document.body.appendChild(sc);
+    function fail(msg) {
+      out.innerHTML = "";
+      var p = document.createElement("p"); p.className = "out-note"; p.textContent = msg;
+      var b = document.createElement("button"); b.type = "button"; b.className = "btn"; b.textContent = "Try again";
+      b.onclick = function () { sc.remove(); loadModels(); };
+      out.appendChild(p); out.appendChild(b);
+    }
+  }
   $("calc-form").addEventListener("input", function (e) { if (e.target !== hoodSel) update(); });
   $("calc-form").addEventListener("submit", function (e) { e.preventDefault(); });
   Array.prototype.forEach.call(document.querySelectorAll("[data-preset]"), function (b) { b.addEventListener("click", function () { applyPreset(b.dataset.preset); }); });
   applyPreset("start");
+  loadModels();
 })();
 </script>
 </body>

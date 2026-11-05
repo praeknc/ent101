@@ -10,7 +10,8 @@ Predictive-analytics project that recommends a nightly price for a Boston Airbnb
 | `notebooks/boston_airbnb_quarterly.ipynb` | Phase 2: re-select the model on June, apply it to the year, pool quarters with time + zone features, compare per-quarter weights |
 | `interface/index.html` | Portfolio page with a working price calculator (open it in a browser; no server needed) |
 | `interface/pricing.js` | JavaScript port of the feature builder and the five models |
-| `interface/data.js` | Trained models + metrics exported by the notebook |
+| `interface/data.js` | Metrics, chart data and map exported by the notebooks (small, loads first) |
+| `interface/models.js` | Trained models exported by the notebooks (loaded in the background) |
 | `scripts/build_notebook.py`, `scripts/build_quarterly_notebook.py` | Sources of the notebook cells |
 | `scripts/verify_js.js` | Checks that the browser predictions match Python |
 
