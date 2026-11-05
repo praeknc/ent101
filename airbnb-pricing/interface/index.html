@@ -23,6 +23,9 @@
   --m-lasso: #7b5aa6;
   --m-rf: #1d5d79;
   --m-gb: #a5412c;
+  --m-q: #2d7a4f;
+  --jun: #c27a12;
+  --sep: #1d5d79;
   --good: #2d7a4f;
   --font-display: "Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
   --font-body: "Source Serif 4", Georgia, "Times New Roman", serif;
@@ -39,13 +42,13 @@
   :root:not([data-theme="light"]) {
     --paper: #0f151a; --surface: #161e25; --ink: #e5ebf0; --muted: #95a3af; --line: #29343e;
     --brick: #e27d63; --harbor: #6eb4d2; --m-base: #7d8994; --m-ols: #ddb24b; --m-lasso: #b297dc;
-    --m-rf: #6eb4d2; --m-gb: #e27d63; --good: #6cc191; color-scheme: dark;
+    --m-rf: #6eb4d2; --m-gb: #e27d63; --m-q: #6cc191; --jun: #e5a54a; --sep: #6eb4d2; --good: #6cc191; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --paper: #0f151a; --surface: #161e25; --ink: #e5ebf0; --muted: #95a3af; --line: #29343e;
   --brick: #e27d63; --harbor: #6eb4d2; --m-base: #7d8994; --m-ols: #ddb24b; --m-lasso: #b297dc;
-  --m-rf: #6eb4d2; --m-gb: #e27d63; --good: #6cc191; color-scheme: dark;
+  --m-rf: #6eb4d2; --m-gb: #e27d63; --m-q: #6cc191; --jun: #e5a54a; --sep: #6eb4d2; --good: #6cc191; color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -189,6 +192,25 @@ ol.reasons, ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; 
 .feat { padding: 10px 0; border-bottom: 1px solid var(--line); display: grid; gap: 2px; }
 .feat code { font-family: var(--font-data); font-size: 0.85rem; color: var(--harbor); }
 .feat span { font-size: 0.92rem; }
+/* quarterly */
+.phase { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; padding-top: 40px; border-top: 3px double var(--line); }
+.phase h2 { font-size: var(--step-4); }
+.qcards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+@media (max-width: 760px) { .qcards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.qcard { padding: 14px 14px 14px 0; display: grid; gap: 4px; align-content: start; }
+.qcard + .qcard { padding-left: 14px; border-left: 1px solid var(--line); }
+@media (max-width: 760px) { .qcard:nth-child(3) { padding-left: 0; border-left: 0; } .qcard:nth-child(n+3) { border-top: 1px solid var(--line); } }
+.qcard .q { font-family: var(--font-display); font-weight: 700; font-size: var(--step-1); }
+.qcard .row { display: flex; justify-content: space-between; gap: 8px; font-size: 0.88rem; }
+.qcard .row span:last-child { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.pill { justify-self: start; font-family: var(--font-display); font-size: 0.75rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; }
+.pill.ok { background: color-mix(in oklab, var(--good) 16%, transparent); color: var(--good); }
+.pill.no { background: color-mix(in oklab, var(--muted) 16%, transparent); color: var(--muted); }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-family: var(--font-display); font-size: 0.85rem; color: var(--muted); }
+.qprices { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.qprice { border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; display: grid; gap: 2px; }
+.qprice[data-active="true"] { border-color: var(--ink); }
+.qprice .v { font-family: var(--font-display); font-weight: 700; font-size: var(--step-2); font-variant-numeric: tabular-nums; }
 footer { border-top: 1px solid var(--line); padding-block: 28px 48px; font-size: 0.92rem; color: var(--muted); display: grid; gap: 10px; }
 footer code { font-family: var(--font-data); font-size: 0.85rem; background: var(--surface); border: 1px solid var(--line); padding: 1px 5px; border-radius: 3px; }
 .loading { color: var(--muted); font-style: italic; }
@@ -209,6 +231,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
       <a href="#models">Models</a>
       <a href="#compare">Comparison</a>
       <a href="#verdict">Verdict</a>
+      <a href="#quarterly">Quarterly</a>
     </nav>
   </div>
 </header>
@@ -216,9 +239,9 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
 <main class="wrap" id="top">
 
 <section class="hero">
-  <span class="label">Predictive analytics project · Inside Airbnb, Boston</span>
+  <span class="label">Predictive analytics project · Inside Airbnb, Boston · Sep 2026 snapshot, then four quarters</span>
   <h1>What should a Boston host charge <em>per night?</em></h1>
-  <p class="lede">I trained five pricing models on the listing prices Boston hosts post today, compared them on unseen listings, and turned the best one into the calculator below. Describe your place and it recommends a nightly rate, with a likely range and the reasons behind it.</p>
+  <p class="lede">I trained five pricing models on one snapshot of Boston listing prices and compared them on unseen listings. I then retrained the best one across a year of quarterly snapshots with time and zone features, and turned it into the calculator below. Describe your place and it recommends a nightly rate, with a likely range and the reasons behind it.</p>
   <div class="facts" id="facts">
     <div><span class="v num" id="f-rows">3,480</span><span class="k">priced listings used for training and testing</span></div>
     <div><span class="v num" id="f-feat">48</span><span class="k">features built from 19 raw columns</span></div>
@@ -232,7 +255,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
   <div class="sec-head">
     <span class="label">The tool</span>
     <h2 id="calc-h">Price my listing</h2>
-    <p class="muted">The form opens with an example: a renovated two-bedroom in the South End. Change any field, or click the map to place your listing, and every model reprices it instantly in your browser.</p>
+    <p class="muted">The form opens with an example: a renovated two-bedroom in the South End. Change any field, or click the map to place your listing, and every model reprices it instantly in your browser. The headline price comes from the Phase 2 quarterly model; the Phase 1 snapshot models are shown for comparison.</p>
   </div>
 
   <div class="calc">
@@ -254,6 +277,15 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
           <button type="button" data-v="Hotel room" aria-pressed="false">Hotel room</button>
           <button type="button" data-v="Shared room" aria-pressed="false">Shared room</button>
         </div>
+      </div>
+
+      <div class="field">
+        <span class="label">Quarter to price for</span>
+        <div class="seg" id="in-q" role="group" aria-label="Quarter">
+          <button type="button" data-v="2026Q2" aria-pressed="false">Jun 2026 (summer)</button>
+          <button type="button" data-v="2026Q3" aria-pressed="true">Sep 2026 (fall)</button>
+        </div>
+        <span class="hint">With only two priced quarters, the seasonal adjustment for a single listing is often small. Step 8 explains why.</span>
       </div>
 
       <div class="row-2">
@@ -279,6 +311,14 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
         <div class="field"><label for="in-rev">Total reviews</label><input type="number" id="in-rev" min="0" value="25"></div>
         <div class="field"><label for="in-rpm">Reviews / month</label><input type="number" id="in-rpm" min="0" step="0.1" value="1.5"></div>
         <div class="field"><label for="in-ltm">Reviews, last 12 mo</label><input type="number" id="in-ltm" min="0" value="10"></div>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="in-tenure">Already listed for</label>
+          <select id="in-tenure"><option value="0">New this quarter</option><option value="1">1 earlier quarter</option><option value="2">2 earlier quarters</option><option value="3" selected>3+ earlier quarters</option></select>
+        </div>
+        <div class="field"><label for="in-recent">Days since last review</label><input type="number" id="in-recent" min="0" max="1095" value="20"><span class="hint">ignored if you have no reviews</span></div>
       </div>
 
       <div class="row-2">
@@ -311,14 +351,15 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
       <div class="price-head">
         <span class="label" id="out-model-label">Recommended nightly price</span>
         <div class="price-big num" id="out-price"><span class="loading">loading models…</span></div>
+        <div class="qprices" id="out-q"></div>
         <p class="out-note" id="out-range-note"></p>
         <svg class="range-bar" id="range-bar" viewBox="0 0 400 54" preserveAspectRatio="none" aria-hidden="true"></svg>
       </div>
 
       <div>
         <h3>What each method says</h3>
-        <p class="out-note">Same listing, five models. The one marked ★ had the lowest error on unseen listings.</p>
-        <svg id="out-models" viewBox="0 0 420 170" width="100%" role="img" aria-label="Predicted price by model"></svg>
+        <p class="out-note">The five Phase 1 snapshot models (Sep 2026, ★ = best of the five) next to the Phase 2 quarterly model that sets the price above.</p>
+        <svg id="out-models" viewBox="0 0 420 200" width="100%" role="img" aria-label="Predicted price by model"></svg>
       </div>
 
       <div>
@@ -329,7 +370,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
 
       <div>
         <h3>Same place, other neighbourhoods</h3>
-        <p class="out-note">Your listing re-priced by the random forest in each part of Boston, each placed at that neighbourhood's typical location.</p>
+        <p class="out-note">Your listing re-priced by the quarterly model for the selected quarter, in each part of Boston, placed at that neighbourhood's typical location.</p>
         <svg id="out-hoods" viewBox="0 0 420 520" width="100%" role="img" aria-label="Predicted price of this listing in each neighbourhood"></svg>
       </div>
     </div>
@@ -558,9 +599,96 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
   </div>
 </section>
 
+<!-- ============ PHASE 2 ============ -->
+<div class="phase" id="quarterly"><span class="label">Phase 2</span><h2>A year of snapshots</h2></div>
+
+<section class="block" aria-labelledby="q1-h" style="border-top:0; padding-top:24px">
+  <div class="sec-head">
+    <span class="step-no">Step 6</span>
+    <h3 id="q1-h" style="font-size:var(--step-3)">Four quarterly snapshots, two with prices</h3>
+    <p>Phase 1 used a single snapshot (September 2026). Prices move through the year, so Phase 2 stacks four quarterly Inside Airbnb snapshots. Inside Airbnb published no prices for December and March, so those two quarters can't be scored. They still count: they show how many earlier quarters each listing was already live (its <em>tenure</em>), and the model prices their listing stock.</p>
+  </div>
+  <div class="qcards" id="qcards"></div>
+  <p class="muted" style="font-size:0.92rem">The March scrape is partial: about half the usual listings, skewed toward entire homes. Its higher predicted median reflects that mix, not a change in the market.</p>
+</section>
+
+<section class="block" aria-labelledby="q2-h">
+  <div class="sec-head">
+    <span class="step-no">Step 7</span>
+    <h3 id="q2-h" style="font-size:var(--step-3)">Train on June, apply to the year</h3>
+    <p>On June data alone, random forest and gradient boosting tie (CV RMSE <span class="num" id="q-cv-rf"></span> vs <span class="num" id="q-cv-gb"></span>), so the Phase 1 winner stays. Trained on June only, it then prices September listings it has never seen. Listings are split <strong>by ID</strong>, so a test listing's June and September rows are both kept out of training.</p>
+  </div>
+  <div class="grid-2">
+    <div class="panel">
+      <h3>Error on held-out listings</h3>
+      <p class="cap">Test MAE in $/night, scored separately on June and September. Every model is a random forest with the same settings; only the training data and features change.</p>
+      <div class="legend"><span><span class="swatch" style="background:var(--jun)"></span>June test listings</span><span><span class="swatch" style="background:var(--sep)"></span>September test listings</span></div>
+      <svg id="ch-exp" viewBox="0 0 480 330" width="100%" role="img" aria-label="Test error by experiment and quarter"></svg>
+    </div>
+    <div class="panel">
+      <h3>Over- or under-pricing</h3>
+      <p class="cap">Median of predicted ÷ actual − 1. Zero means unbiased. The June-only model over-prices September: the market cooled after the summer peak.</p>
+      <svg id="ch-bias" viewBox="0 0 480 330" width="100%" role="img" aria-label="Bias by experiment and quarter"></svg>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="table-scroll">
+      <table id="tbl-exp"><thead><tr><th>Experiment</th><th>Training data</th><th>Features</th><th class="num">MAE Jun</th><th class="num">MAE Sep</th><th class="num">Bias Sep</th><th class="num">Within ±20% Sep</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+</section>
+
+<section class="block" aria-labelledby="q3-h">
+  <div class="sec-head">
+    <span class="step-no">Step 8</span>
+    <h3 id="q3-h" style="font-size:var(--step-3)">Time and zone features, and how the weights move</h3>
+    <p><strong>Time:</strong> a quarter indicator, tenure (earlier quarters live, 0-3) and days since the last review. <strong>Zone:</strong> distance rings around Boston Common (under 2 km, 2-5 km, over 5 km) and 8 geographic clusters fitted on all four quarters, which cut across neighbourhood lines.</p>
+  </div>
+  <div class="grid-2">
+    <div class="panel">
+      <h3>Weight of each parameter, June vs September</h3>
+      <p class="cap">A Lasso fitted on each quarter separately, shown as the % price effect of each feature. Read minimum nights and monthly together, because they overlap.</p>
+      <div class="legend"><span><span class="swatch" style="background:var(--jun)"></span>Jun 2026</span><span><span class="swatch" style="background:var(--sep)"></span>Sep 2026</span></div>
+      <svg id="ch-weights" viewBox="0 0 480 520" width="100%" role="img" aria-label="Lasso weights by quarter"></svg>
+    </div>
+    <div style="display:grid; gap:28px; min-width:0">
+      <div class="panel">
+        <h3>What the pooled model uses</h3>
+        <p class="cap">Permutation importance of the final quarterly model. The quarter indicator and zones are used, but room type and minimum stay still dominate.</p>
+        <svg id="ch-qimp" viewBox="0 0 440 400" width="100%" role="img" aria-label="Feature importance of the quarterly model"></svg>
+      </div>
+      <div class="panel">
+        <h3>Zone prices by quarter</h3>
+        <p class="cap">Median listed price in each geographic zone.</p>
+        <div class="table-scroll"><table id="tbl-zones"><thead><tr><th>Zone (main neighbourhoods)</th><th class="num">Jun</th><th class="num">Sep</th><th class="num">Change</th></tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+  </div>
+  <div class="verdict">
+    <div class="call">
+      <span class="label">Phase 2 result</span>
+      <h3 id="q-headline">Pooling the quarters with time and zone cuts September error.</h3>
+      <ol class="reasons">
+        <li><strong>A snapshot model goes stale.</strong> The June-only model over-prices September by <span class="num" id="q-bias-jo"></span> and its error rises to <span class="num" id="q-mae-jo"></span>/night.</li>
+        <li><strong>Using every quarter helps most.</strong> Pooling June and September does most of the work. Time features, zones and 2× weight on the newer quarter each trim a little more, reaching <span class="num" id="q-mae-fin"></span>/night on September.</li>
+        <li><strong>Weights move between quarters.</strong> The license premium shrinks from summer to fall, and Downtown, Fenway and "view" listings hold their value better. One fixed set of weights can't serve the whole year.</li>
+        <li><strong>Some bias remains</strong> (about <span class="num" id="q-bias-fin"></span> on September). With only two priced quarters, the model has one seasonal contrast to learn from. Priced December and March files would turn the quarter flag into a full season feature.</li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h3>How to run it each quarter</h3>
+      <ul class="plain">
+        <li>Drop the new snapshot into <span class="mono">data/quarterly/</span>.</li>
+        <li>Re-run both notebooks: the snapshot study, then the quarterly study.</li>
+        <li>The calculator picks up the refitted model from <span class="mono">interface/data.js</span>.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
 <footer>
-  <div><strong>Reproduce it.</strong> Run <code>notebooks/boston_airbnb_pricing.ipynb</code> to train, compare and export the models to <code>interface/data.js</code>. <code>node scripts/verify_js.js</code> checks that the browser calculator matches the Python models.</div>
-  <div>Data: Inside Airbnb, Boston snapshot. Model metrics come from the notebook run and are not hand-entered.</div>
+  <div><strong>Reproduce it.</strong> Run <code>notebooks/boston_airbnb_pricing.ipynb</code> (Phase 1), then <code>notebooks/boston_airbnb_quarterly.ipynb</code> (Phase 2), to train, compare and export the models to <code>interface/data.js</code>. <code>node scripts/verify_js.js</code> checks that the browser calculator matches the Python models.</div>
+  <div>Data: Inside Airbnb, Boston quarterly snapshots (Dec 2025 – Sep 2026). Model metrics come from the notebook run and are not hand-entered.</div>
 </footer>
 </main>
 
@@ -730,13 +858,112 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
     "licensed": "STR license", "exempt": "License exempt", "dist_km": "Distance to Boston Common", "latitude": "Latitude", "longitude": "Longitude",
     "bedrooms": "Bedrooms", "bedrooms_known": "Bedrooms stated in title", "kw_parking": "Parking", "kw_luxury": "Modern / renovated",
     "kw_view": "View / rooftop", "kw_amenities": "Gym / pool / concierge", "kw_managed": "Furnished, managed brand",
-    "neighbourhood (one-hot)": "Neighbourhood"
+    "neighbourhood (one-hot)": "Neighbourhood", "Neighbourhood (one-hot)": "Neighbourhood",
+    "q_sep": "Quarter (Sep vs Jun)", "tenure_q": "Tenure (quarters live)", "days_since_review": "Days since last review",
+    "Zones (rings + clusters)": "Zones (rings + clusters)"
   };
   var nice = function (f) { return NICE[f] || (f.indexOf("nb_") === 0 ? f.slice(3) : f); };
   (function () {
     var imp = Object.keys(P.importance).map(function (k) { return { k: k, v: P.importance[k] }; }).filter(function (r) { return r.v > 0; }).slice(0, 12);
     $("ch-imp").setAttribute("viewBox", "0 0 440 " + (imp.length * 28 + 12));
-    hbar($("ch-imp"), imp.map(function (r) { return { label: nice(r.k), v: r.v, text: r.v.toFixed(3), color: "var(--harbor)" }; }), { w: 440, left: 170, right: 50, rowH: 28 });
+    hbar($("ch-imp"), imp.map(function (r) { return { label: nice(r.k), v: r.v, text: r.v.toFixed(3), color: "var(--harbor)" }; }), { w: 440, left: 186, right: 50, rowH: 28 });
+  })();
+
+  /* ---------- phase 2: quarterly ---------- */
+  var Q = P.quarterly, QLABEL = { "2026Q2": "Jun 2026", "2026Q3": "Sep 2026" };
+  var fmtPct = function (v) { return (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(1) + "%"; };
+  (function () {
+    var box = $("qcards");
+    Q.quarters.forEach(function (q) {
+      var d = document.createElement("div"); d.className = "qcard";
+      d.innerHTML = "<span class='q'></span><span class='pill " + (q.priced ? "ok" : "no") + "'>" + (q.priced ? q.priced.toLocaleString("en-US") + " priced" : "no prices published") + "</span>" +
+        "<div class='row'><span>Listings</span><span>" + q.listings.toLocaleString("en-US") + "</span></div>" +
+        "<div class='row'><span>Entire homes</span><span>" + Math.round(q.entire_share * 100) + "%</span></div>" +
+        "<div class='row'><span>Actual median</span><span>" + (q.actual_median ? fmt$(q.actual_median) : "–") + "</span></div>" +
+        "<div class='row'><span>June model median</span><span>" + fmt$(q.june_model_median) + "</span></div>";
+      d.querySelector(".q").textContent = q.label;
+      box.appendChild(d);
+    });
+    $("q-cv-rf").textContent = Q.june_cv["Random Forest"].toFixed(4);
+    $("q-cv-gb").textContent = Q.june_cv["Gradient Boosting"].toFixed(4);
+
+    var EX = {}; Q.experiments.forEach(function (r) { (EX[r.experiment] = EX[r.experiment] || {})[r.test] = r; });
+    var names = Q.experiment_order;
+    var META = {
+      "June-only": ["Jun", "48 snapshot"], "Sep-only": ["Sep", "48 snapshot"], "Pooled": ["Jun + Sep", "48 snapshot"],
+      "Pooled + time": ["Jun + Sep", "+ time"], "Pooled + time + zone": ["Jun + Sep", "+ time + zone"],
+      "Pooled + time + zone, recency-weighted": ["Jun + Sep, Sep ×2", "+ time + zone"]
+    };
+    function grouped(svgId, metric, fmt, zero) {
+      var svg = $(svgId), W = 480, L = 168, R = 58, rowH = 52, T = 6;
+      svg.setAttribute("viewBox", "0 0 " + W + " " + (T + names.length * rowH + 18));
+      var vals = []; names.forEach(function (n) { vals.push(EX[n]["Jun 2026"][metric], EX[n]["Sep 2026"][metric]); });
+      var lo = zero ? Math.min(0, Math.min.apply(null, vals)) : 0, hi = Math.max.apply(null, vals) * 1.05;
+      var x = linScale(lo, hi, L, W - R);
+      if (zero) el("line", { x1: x(0), x2: x(0), y1: T, y2: T + names.length * rowH, stroke: "var(--ink)", "stroke-width": 1 }, svg);
+      names.forEach(function (n, i) {
+        var y = T + i * rowH, short = n.replace(", recency-weighted", " (Sep ×2)");
+        var words = short.split(" + "), lines = words.length > 2 ? [words[0] + " + " + words[1], "+ " + words.slice(2).join(" + ")] : [short];
+        lines.forEach(function (ln, k) { el("text", { x: L - 8, y: y + rowH / 2 + 4 - (lines.length - 1) * 7 + k * 14, "text-anchor": "end", "class": n === Q.final ? "ink" : "" }, svg, ln); });
+        [["Jun 2026", "var(--jun)", 6], ["Sep 2026", "var(--sep)", 25]].forEach(function (t) {
+          var v = EX[n][t[0]][metric], x0 = x(Math.min(0, v)), x1 = x(Math.max(0, v));
+          el("rect", { x: x0, y: y + t[2], width: Math.max(1, x1 - x0), height: 17, fill: t[1], rx: 2 }, svg);
+          el("text", { x: x1 + 5, y: y + t[2] + 13, "class": "ink" }, svg, fmt(v));
+        });
+      });
+    }
+    grouped("ch-exp", "MAE_$", fmt$, false);
+    grouped("ch-bias", "bias_%", fmtPct, true);
+
+    var tb = document.querySelector("#tbl-exp tbody");
+    names.forEach(function (n) {
+      var tr = document.createElement("tr"), j = EX[n]["Jun 2026"], sp = EX[n]["Sep 2026"];
+      if (n === Q.final) tr.className = "best";
+      tr.innerHTML = "<td></td><td>" + META[n][0] + "</td><td>" + META[n][1] + "</td><td class='num'>" + fmt$(j["MAE_$"]) + "</td><td class='num'>" + fmt$(sp["MAE_$"]) +
+        "</td><td class='num'>" + fmtPct(sp["bias_%"]) + "</td><td class='num'>" + sp["within_20%"].toFixed(1) + "%</td>";
+      tr.firstChild.textContent = n + (n === Q.final ? " ★" : "");
+      tb.appendChild(tr);
+    });
+    var jo = EX["June-only"]["Sep 2026"], fin = EX[Q.final]["Sep 2026"];
+    $("q-bias-jo").textContent = fmtPct(jo["bias_%"]); $("q-mae-jo").textContent = fmt$(jo["MAE_$"]);
+    $("q-mae-fin").textContent = fmt$(fin["MAE_$"]); $("q-bias-fin").textContent = fmtPct(fin["bias_%"]);
+    $("q-headline").textContent = "Pooling the quarters with time and zone cuts September error by " + Math.round((1 - fin["MAE_$"] / jo["MAE_$"]) * 100) + "%.";
+
+    // weights dumbbell
+    var W8 = Q.weights.slice().sort(function (a, b) { return a["Sep 2026"] - b["Sep 2026"]; });
+    var svg = $("ch-weights"), W = 480, L = 196, R = 16, rowH = 25, T = 6;
+    svg.setAttribute("viewBox", "0 0 " + W + " " + (T + W8.length * rowH + 22));
+    var all = []; W8.forEach(function (r) { all.push(r["Jun 2026"], r["Sep 2026"]); });
+    var lo = Math.floor(Math.min.apply(null, all) / 20) * 20, hi = Math.ceil(Math.max.apply(null, all) / 20) * 20;
+    var x = linScale(lo, hi, L, W - R);
+    for (var v = lo; v <= hi; v += 20) {
+      el("line", { x1: x(v), x2: x(v), y1: T, y2: T + W8.length * rowH, "class": "grid" }, svg);
+      el("text", { x: x(v), y: T + W8.length * rowH + 16, "text-anchor": "middle" }, svg, (v > 0 ? "+" : "") + v + "%");
+    }
+    el("line", { x1: x(0), x2: x(0), y1: T, y2: T + W8.length * rowH, stroke: "var(--ink)", "stroke-width": 1 }, svg);
+    W8.forEach(function (r, i) {
+      var y = T + i * rowH + rowH / 2;
+      el("text", { x: L - 8, y: y + 4, "text-anchor": "end", "class": "ink" }, svg, nice(r.feature));
+      el("line", { x1: x(r["Jun 2026"]), x2: x(r["Sep 2026"]), y1: y, y2: y, stroke: "var(--muted)", "stroke-width": 2 }, svg);
+      el("circle", { cx: x(r["Jun 2026"]), cy: y, r: 5, fill: "var(--jun)" }, svg);
+      el("circle", { cx: x(r["Sep 2026"]), cy: y, r: 5, fill: "var(--sep)" }, svg);
+    });
+
+    // importance
+    var imp = Object.keys(Q.importance).map(function (k) { return { k: k, v: Q.importance[k] }; }).slice(0, 12);
+    $("ch-qimp").setAttribute("viewBox", "0 0 440 " + (imp.length * 28 + 12));
+    var TZ = { "q_sep": 1, "tenure_q": 1, "days_since_review": 1, "Zones (rings + clusters)": 1 };
+    hbar($("ch-qimp"), imp.map(function (r) { return { label: nice(r.k), v: r.v, text: r.v.toFixed(3), color: TZ[r.k] ? "var(--m-q)" : "var(--harbor)", strong: !!TZ[r.k] }; }), { w: 440, left: 186, right: 50, rowH: 28 });
+
+    // zones table
+    var zb = document.querySelector("#tbl-zones tbody");
+    Object.keys(Q.zones.names).map(function (z) {
+      return { name: Q.zones.names[z], j: Q.zone_price[z + "|Jun 2026"], s: Q.zone_price[z + "|Sep 2026"] };
+    }).sort(function (a, b) { return b.s - a.s; }).forEach(function (r) {
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td></td><td class='num'>" + fmt$(r.j) + "</td><td class='num'>" + fmt$(r.s) + "</td><td class='num'>" + fmtPct((r.s / r.j - 1) * 100) + "</td>";
+      tr.firstChild.textContent = r.name; zb.appendChild(tr);
+    });
   })();
 
   /* ---------- map ---------- */
@@ -791,6 +1018,10 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
   var state = {};
   var KW = ["kw_parking", "kw_luxury", "kw_view", "kw_amenities", "kw_managed"];
 
+  function setQuarter(v) {
+    Array.prototype.forEach.call($("in-q").children, function (b) { b.setAttribute("aria-pressed", b.dataset.v === v ? "true" : "false"); });
+    state.quarter = v;
+  }
   function setRoom(v) {
     Array.prototype.forEach.call($("in-room").children, function (b) { b.setAttribute("aria-pressed", b.dataset.v === v ? "true" : "false"); });
     state.room_type = v;
@@ -806,14 +1037,17 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
     state.host_listings = Math.max(1, +$("in-host").value || 1);
     state.license = $("in-lic").value;
     state.kw = {}; KW.forEach(function (k) { state.kw[k] = $(k).checked; });
+    state.tenure_q = +$("in-tenure").value;
+    state.days_since_review = state.number_of_reviews > 0 ? Math.max(0, +$("in-recent").value || 0) : 1095;
+    $("in-recent").disabled = state.number_of_reviews === 0;
     $("avail-v").textContent = state.availability_365;
   }
 
   var PRESETS = {
-    "new": { hood: "Fenway", room: "Entire home/apt", beds: 0, min: 2, avail: 300, rev: 0, rpm: 0, ltm: 0, host: 1, lic: "licensed", kw: ["kw_luxury"] },
-    "room": { hood: "Jamaica Plain", room: "Private room", beds: 1, min: 1, avail: 250, rev: 80, rpm: 2.5, ltm: 25, host: 1, lic: "licensed", kw: [] },
-    "monthly": { hood: "Back Bay", room: "Entire home/apt", beds: 1, min: 32, avail: 330, rev: 12, rpm: 0.4, ltm: 3, host: 40, lic: "none", kw: ["kw_managed", "kw_amenities"] },
-    "start": { hood: "South End", room: "Entire home/apt", beds: 2, min: 2, avail: 180, rev: 25, rpm: 1.5, ltm: 10, host: 1, lic: "licensed", kw: ["kw_luxury"] }
+    "new": { hood: "Fenway", room: "Entire home/apt", beds: 0, min: 2, avail: 300, rev: 0, rpm: 0, ltm: 0, host: 1, lic: "licensed", kw: ["kw_luxury"], tenure: 0, recent: 0 },
+    "room": { hood: "Jamaica Plain", room: "Private room", beds: 1, min: 1, avail: 250, rev: 80, rpm: 2.5, ltm: 25, host: 1, lic: "licensed", kw: [], tenure: 3, recent: 10 },
+    "monthly": { hood: "Back Bay", room: "Entire home/apt", beds: 1, min: 32, avail: 330, rev: 12, rpm: 0.4, ltm: 3, host: 40, lic: "none", kw: ["kw_managed", "kw_amenities"], tenure: 2, recent: 60 },
+    "start": { hood: "South End", room: "Entire home/apt", beds: 2, min: 2, avail: 180, rev: 25, rpm: 1.5, ltm: 10, host: 1, lic: "licensed", kw: ["kw_luxury"], tenure: 3, recent: 20 }
   };
   function applyPreset(k) {
     var p = PRESETS[k];
@@ -821,16 +1055,17 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
     $("in-beds").value = p.beds; $("in-min").value = p.min; $("in-avail").value = p.avail;
     $("in-rev").value = p.rev; $("in-rpm").value = p.rpm; $("in-ltm").value = p.ltm; $("in-host").value = p.host; $("in-lic").value = p.lic;
     KW.forEach(function (kw) { $(kw).checked = p.kw.indexOf(kw) >= 0; });
+    $("in-tenure").value = p.tenure; $("in-recent").value = p.recent;
     update();
   }
 
   /* ---------- outputs ---------- */
-  function drawRange(res) {
-    var svg = clear($("range-bar")), W = 400, lo = res.low, hi = res.high, med = hoodStats[state.neighbourhood].median;
+  function drawRange(val, lo, hi) {
+    var svg = clear($("range-bar")), W = 400, med = hoodStats[state.neighbourhood].median;
     var a = Math.min(lo, med) * 0.85, b = Math.max(hi, med) * 1.1, x = logScale(a, b, 8, W - 8);
     el("rect", { x: 8, y: 22, width: W - 16, height: 6, rx: 3, fill: "var(--line)" }, svg);
     el("rect", { x: x(lo), y: 18, width: x(hi) - x(lo), height: 14, rx: 3, fill: "var(--harbor)", opacity: 0.3 }, svg);
-    el("rect", { x: x(res[res.best]) - 1.5, y: 12, width: 3, height: 26, fill: "var(--harbor)" }, svg);
+    el("rect", { x: x(val) - 1.5, y: 12, width: 3, height: 26, fill: "var(--harbor)" }, svg);
     el("path", { d: "M" + x(med) + ",40 l-5,8 h10 z", fill: "var(--brick)" }, svg);
     el("text", { x: x(lo), y: 10, "text-anchor": "start" }, svg, fmt$(lo));
     el("text", { x: x(hi), y: 10, "text-anchor": "end" }, svg, fmt$(hi));
@@ -838,10 +1073,11 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
     el("text", { x: mx, y: 54, "text-anchor": "middle", fill: "var(--brick)", style: "fill: var(--brick)" }, svg, "area median " + fmt$(med));
   }
 
-  function drawModels(res) {
-    var rows = ORDER.map(function (n) { return { label: n + (n === res.best ? " ★" : ""), v: res[n], text: fmt$(res[n]), color: COLOR[n], strong: n === res.best }; });
+  function drawModels(res, qv) {
+    var rows = ORDER.map(function (n) { return { label: n + (n === res.best ? " ★" : ""), v: res[n], text: fmt$(res[n]), color: COLOR[n], strong: false }; });
+    rows.push({ label: "Quarterly RF (" + QLABEL[state.quarter] + ")", v: qv, text: fmt$(qv), color: "var(--m-q)", strong: true });
     var max = Math.max.apply(null, rows.map(function (r) { return r.v; })) * 1.05;
-    hbar($("out-models"), rows, { w: 420, left: 140, right: 56, rowH: 32, max: max });
+    hbar($("out-models"), rows, { w: 420, left: 178, right: 52, rowH: 32, max: max });
   }
 
   function drawDrivers(x) {
@@ -877,27 +1113,37 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
   function drawHoods() {
     var rows = Object.keys(hoodStats).map(function (n) {
       var L = Object.assign({}, state, { neighbourhood: n, lat: hoodStats[n].lat, lon: hoodStats[n].lon });
-      return { n: n, v: Math.exp(E.predictLog[M.best](E.features(L))) };
+      return { n: n, v: E.priceQuarter(L).price };
     }).sort(function (a, b) { return b.v - a.v; });
     var svg = $("out-hoods");
     svg.setAttribute("viewBox", "0 0 420 " + (rows.length * 20 + 8));
-    hbar(svg, rows.map(function (r) { return { label: r.n, v: r.v, text: fmt$(r.v), color: r.n === state.neighbourhood ? "var(--brick)" : "var(--m-rf)", strong: r.n === state.neighbourhood }; }), { w: 420, left: 150, right: 52, rowH: 20, top: 4 });
+    hbar(svg, rows.map(function (r) { return { label: r.n, v: r.v, text: fmt$(r.v), color: r.n === state.neighbourhood ? "var(--brick)" : "var(--m-rf)", strong: r.n === state.neighbourhood }; }), { w: 420, left: 172, right: 50, rowH: 20, top: 4 });
   }
 
   function update() {
     readForm();
-    var res = E.priceAll(state), x = E.features(state);
-    $("out-price").innerHTML = fmt$(res[res.best]) + " <small>/ night</small>";
-    $("out-model-label").textContent = "Recommended nightly price · " + res.best.toLowerCase();
-    $("out-range-note").textContent = "80% of comparable listings would sit between " + fmt$(res.low) + " and " + fmt$(res.high) + " (based on the model's errors on unseen listings). The red marker shows the median for " + state.neighbourhood + ".";
+    var res = E.priceAll(state), x = E.features(state), q = E.priceQuarter(state);
+    $("out-price").innerHTML = fmt$(q.price) + " <small>/ night</small>";
+    $("out-model-label").textContent = "Recommended nightly price · " + QLABEL[state.quarter] + " · quarterly model";
+    var box = $("out-q"); box.innerHTML = "";
+    ["2026Q2", "2026Q3"].forEach(function (qc) {
+      var v = E.priceQuarter(Object.assign({}, state, { quarter: qc })).price, d = document.createElement("div");
+      d.className = "qprice"; d.dataset.active = qc === state.quarter ? "true" : "false";
+      d.innerHTML = "<span class='label'></span><span class='v'></span>";
+      d.querySelector(".label").textContent = QLABEL[qc]; d.querySelector(".v").textContent = fmt$(v);
+      box.appendChild(d);
+    });
+    $("out-range-note").textContent = "80% of comparable listings would sit between " + fmt$(q.low) + " and " + fmt$(q.high) + " (based on the model's errors on unseen listings). Your location falls in zone " + Q.zones.names[q.zone] + ". The red marker shows the median for " + state.neighbourhood + ".";
     Object.keys(paths).forEach(function (n) { paths[n].forEach(function (p) { p.setAttribute("class", (hoodStats[n] ? "" : "disabled") + (n === state.neighbourhood ? " sel" : "")); if (n === state.neighbourhood) p.parentNode.insertBefore(p, pin); }); });
     pin.setAttribute("transform", "translate(" + px(state.lon).toFixed(1) + "," + py(state.lat).toFixed(1) + ")");
-    drawRange(res); drawModels(res); drawDrivers(x); drawHoods();
+    drawRange(q.price, q.low, q.high); drawModels(res, q.price); drawDrivers(x); drawHoods();
   }
 
   /* ---------- wire up ---------- */
   hoodSel.addEventListener("change", function () { placeAtHood(hoodSel.value); update(); });
   Array.prototype.forEach.call($("in-room").children, function (b) { b.addEventListener("click", function () { setRoom(b.dataset.v); update(); }); });
+  Array.prototype.forEach.call($("in-q").children, function (b) { b.addEventListener("click", function () { setQuarter(b.dataset.v); update(); }); });
+  setQuarter("2026Q3");
   $("calc-form").addEventListener("input", function (e) { if (e.target !== hoodSel) update(); });
   $("calc-form").addEventListener("submit", function (e) { e.preventDefault(); });
   Array.prototype.forEach.call(document.querySelectorAll("[data-preset]"), function (b) { b.addEventListener("click", function () { applyPreset(b.dataset.preset); }); });

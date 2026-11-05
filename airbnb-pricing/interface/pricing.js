@@ -101,7 +101,34 @@
       return out;
     }
 
-    return { features: features, predictLog: predictLog, priceAll: priceAll, lassoDrivers: lassoDrivers, featureNames: F };
+    /* Phase 2: pooled quarterly model (snapshot features + time + zone).
+       Extra listing fields: quarter ("2026Q2" | "2026Q3"), tenure_q (0-3), days_since_review. */
+    var Q = P.quarterly || null;
+    function quarterlyFeatures(L) {
+      var x = features(L);
+      var dist = x[idx.dist_km];
+      var ky = (L.lat - CENTER[0]) * 111.0, kx = (L.lon - CENTER[1]) * 82.0, zone = 0, bestD = Infinity;
+      Q.zones.centers_km.forEach(function (c, z) { var d = (c[0] - ky) * (c[0] - ky) + (c[1] - kx) * (c[1] - kx); if (d < bestD) { bestD = d; zone = z; } });
+      var extra = {
+        q_sep: L.quarter === "2026Q3" ? 1 : 0, tenure_q: L.tenure_q || 0,
+        days_since_review: Math.min(1095, Math.max(0, L.days_since_review == null ? 1095 : L.days_since_review)),
+        ring_core: dist < 2 ? 1 : 0, ring_inner: dist >= 2 && dist <= 5 ? 1 : 0, ring_outer: dist > 5 ? 1 : 0
+      };
+      for (var z = 0; z < Q.n_zones; z++) extra["zone_" + z] = z === zone ? 1 : 0;
+      return Q.features.map(function (f) { return f in extra ? extra[f] : x[idx[f]]; });
+    }
+    function quarterlyLog(xq) {
+      var s = 0, T = Q.model.trees;
+      for (var i = 0; i < T.length; i++) s += tree(T[i], xq);
+      return s / T.length;
+    }
+    function priceQuarter(L) {
+      var xq = quarterlyFeatures(L), v = Math.exp(quarterlyLog(xq));
+      return { price: v, low: v * Math.exp(Q.band_log[0]), high: v * Math.exp(Q.band_log[1]), zone: xq.slice(-Q.n_zones).indexOf(1) };
+    }
+
+    return { features: features, predictLog: predictLog, priceAll: priceAll, lassoDrivers: lassoDrivers, featureNames: F,
+             quarterlyFeatures: Q ? quarterlyFeatures : null, quarterlyLog: Q ? quarterlyLog : null, priceQuarter: Q ? priceQuarter : null };
   }
 
   if (typeof module !== "undefined" && module.exports) module.exports = { create: create };

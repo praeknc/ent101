@@ -16,5 +16,11 @@ for (const name of Object.keys(engine.predictLog)) {
   worst = Math.max(worst, maxErr);
   console.log(`${name.padEnd(18)} max |log error| = ${maxErr.toExponential(2)}  (≈ ${((Math.exp(maxErr) - 1) * 100).toFixed(3)}% of price)`);
 }
+if (P.quarterly) {
+  let maxErr = 0;
+  P.quarterly.reference.X.forEach((x, i) => { maxErr = Math.max(maxErr, Math.abs(engine.quarterlyLog(x) - P.quarterly.reference.pred[i])); });
+  worst = Math.max(worst, maxErr);
+  console.log(`${"Quarterly RF".padEnd(18)} max |log error| = ${maxErr.toExponential(2)}  (≈ ${((Math.exp(maxErr) - 1) * 100).toFixed(3)}% of price)`);
+}
 if (worst > 0.01) { console.error("FAIL: JS port differs from Python"); process.exit(1); }
 console.log("OK: browser predictions match the notebook");
