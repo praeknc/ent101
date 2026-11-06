@@ -227,6 +227,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
     <nav aria-label="Sections">
       <a href="#calculator">Price my listing</a>
       <a href="#data">Data</a>
+      <a href="#precheck">Pre-check</a>
       <a href="#features">Features</a>
       <a href="#models">Models</a>
       <a href="#compare">Comparison</a>
@@ -241,10 +242,10 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
 <section class="hero">
   <span class="label">Predictive analytics project · Inside Airbnb, Boston · Sep 2026 snapshot, then four quarters</span>
   <h1>What should a Boston host charge <em>per night?</em></h1>
-  <p class="lede">I trained five pricing models on one snapshot of Boston listing prices and compared them on unseen listings. I then retrained the best one across a year of quarterly snapshots with time and zone features, and turned it into the calculator below. Describe your place and it recommends a nightly rate, with a likely range and the reasons behind it.</p>
+  <p class="lede">I pre-checked the data, screened every variable for usefulness, redundancy and leakage, then trained five pricing models on one snapshot of Boston listing prices and compared them on hosts they had never seen. I then retrained the best one across a year of quarterly snapshots with time and zone features, and turned it into the calculator below. Describe your place and it recommends a nightly rate, with a likely range and the reasons behind it.</p>
   <div class="facts" id="facts">
     <div><span class="v num" id="f-rows">3,480</span><span class="k">priced listings used for training and testing</span></div>
-    <div><span class="v num" id="f-feat">48</span><span class="k">features built from 19 raw columns</span></div>
+    <div><span class="v num" id="f-feat">48</span><span class="k">features kept after pre-checking the data and screening every variable</span></div>
     <div><span class="v num">5</span><span class="k">methods compared: baseline, OLS, Lasso, random forest, boosting</span></div>
     <div><span class="v num" id="f-mae">$86</span><span class="k" id="f-mae-k">average error of the best model per night</span></div>
   </div>
@@ -285,7 +286,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
           <button type="button" data-v="2026Q2" aria-pressed="false">Jun 2026 (summer)</button>
           <button type="button" data-v="2026Q3" aria-pressed="true">Sep 2026 (fall)</button>
         </div>
-        <span class="hint">With only two priced quarters, the seasonal adjustment for a single listing is often small. Step 8 explains why.</span>
+        <span class="hint">With only two priced quarters, the seasonal adjustment for a single listing is often small. Step 9 explains why.</span>
       </div>
 
       <div class="row-2">
@@ -336,7 +337,6 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
           <label><input type="checkbox" id="kw_parking"> Parking</label>
           <label><input type="checkbox" id="kw_view"> View / rooftop</label>
           <label><input type="checkbox" id="kw_amenities"> Gym / pool / concierge</label>
-          <label><input type="checkbox" id="kw_managed"> Furnished, managed brand</label>
         </div>
       </div>
 
@@ -439,30 +439,70 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
   </div>
 </section>
 
+<!-- ============ 2. PRE-CHECK ============ -->
+<section class="block" id="precheck" aria-labelledby="pre-h">
+  <div class="sec-head">
+    <span class="step-no">Step 2</span>
+    <h2 id="pre-h">Pre-check the data, then screen every variable</h2>
+    <p>Before any model sees the data, each row goes through quality checks, and each candidate variable is tested for its link to price, redundancy and leakage. Every rule comes from evidence in the data, and the same code runs for all four quarters.</p>
+  </div>
+  <div class="panel">
+    <h3>Data quality checks</h3>
+    <p class="cap">Rows affected in the Sep 2026 snapshot, and what was done. Checks that found nothing are listed too, because a clean result is also evidence.</p>
+    <div class="table-scroll"><table id="tbl-pre"><thead><tr><th>Check</th><th class="num">Rows</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+  </div>
+  <div class="grid-2">
+    <div class="panel">
+      <h3>Which variables relate to price</h3>
+      <p class="cap">Two rankings against log(price). <strong>Spearman</strong> captures steady up-or-down relationships; <strong>mutual information</strong> captures any shape. Colour shows the screening decision.</p>
+      <div class="legend"><span><span class="swatch" style="background:var(--harbor)"></span>Spearman |r|</span><span><span class="swatch" style="background:var(--m-ols)"></span>Mutual information</span></div>
+      <svg id="ch-screen" viewBox="0 0 480 560" width="100%" role="img" aria-label="Variable ranking by correlation and mutual information"></svg>
+    </div>
+    <div style="display:grid; gap:28px; min-width:0">
+      <div class="panel">
+        <h3>A leak in the evaluation</h3>
+        <p class="cap">"Listings the host runs" ranks first on mutual information but near zero on Spearman. That pattern suggests it acts as a host fingerprint: big operators price all their units alike. The test: keep each host's listings on one side of the split.</p>
+        <div class="qprices" id="leak"></div>
+        <p class="out-note" id="leak-note"></p>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>Screening decisions</h3>
+    <div class="table-scroll"><table id="tbl-dec"><thead><tr><th>Variable</th><th>Decision</th><th>Evidence</th></tr></thead><tbody></tbody></table></div>
+  </div>
+  <div class="panel">
+    <h3>Did it help? Rerun with the same models</h3>
+    <p class="cap">Cross-validated error (RMSE on log price, host-grouped, lower is better) for each stage of the recheck.</p>
+    <div class="table-scroll"><table id="tbl-abl"><thead><tr><th>Pipeline</th><th class="num">Random forest</th><th class="num">Lasso</th></tr></thead><tbody></tbody></table></div>
+    <p class="out-note" id="abl-note" style="margin-top:8px"></p>
+  </div>
+</section>
+
 <!-- ============ 2. FEATURES ============ -->
 <section class="block" id="features" aria-labelledby="feat-h">
   <div class="sec-head">
-    <span class="step-no">Step 2</span>
+    <span class="step-no">Step 3</span>
     <h2 id="feat-h">Feature engineering</h2>
-    <p>Every feature is something a host can answer about their own listing. That is why the calculator can ask for exactly the same inputs the models were trained on.</p>
+    <p>Every feature is something a host can answer about their own listing, so the calculator asks for exactly the inputs the models were trained on. This is the final set, after the screening in Step 2.</p>
   </div>
   <div class="feat-list">
     <div class="feat"><code>bedrooms, bedrooms_known</code><span>Parsed from the title ("3BR", "2 bedroom", "Studio" = 0). When the title doesn't say, the value is set to 1 and flagged.</span></div>
-    <div class="feat"><code>private_room, hotel_room, shared_room</code><span>Room type as yes/no columns. Entire home is the reference.</span></div>
-    <div class="feat"><code>log_min_nights, monthly</code><span>log(1 + minimum nights) and a flag for 28+ nights</span></div>
+    <div class="feat"><code>private_room, hotel_room</code><span>Room type as yes/no columns. Entire home is the reference; shared rooms count as private rooms.</span></div>
+    <div class="feat"><code>log_min_nights</code><span>log(1 + minimum nights). It also captures monthly rentals, so the separate 28+ night flag was dropped.</span></div>
     <div class="feat"><code>log_reviews, reviews_per_month, reviews_ltm</code><span>Total, monthly-rate and last-12-month reviews</span></div>
-    <div class="feat"><code>log_host_listings</code><span>How many listings the host runs (log scale)</span></div>
+    <div class="feat"><code>host_size_band</code><span>Host size in bands: 1 | 2-3 | 4-10 | 11-50 | 51+ listings. The exact count acted as a host fingerprint.</span></div>
     <div class="feat"><code>availability_365</code><span>Nights the calendar is open in the next year</span></div>
     <div class="feat"><code>licensed, exempt</code><span>Status of the Boston short-term-rental license</span></div>
     <div class="feat"><code>dist_km, latitude, longitude</code><span>Distance to Boston Common and raw coordinates</span></div>
-    <div class="feat"><code>kw_parking, kw_luxury, kw_view, kw_amenities, kw_managed</code><span>Amenity and positioning keywords in the title</span></div>
-    <div class="feat"><code>nb_* (26)</code><span>One-hot neighbourhood</span></div>
+    <div class="feat"><code>kw_parking, kw_luxury, kw_view, kw_amenities</code><span>Amenity and positioning keywords in the title</span></div>
+    <div class="feat"><code>nb_* (<span id="n-hoods">24</span>)</code><span>One-hot neighbourhood. Leather District counts as Chinatown.</span></div>
   </div>
   <div class="panel">
     <h3>Evaluation set-up</h3>
     <ul class="plain">
-      <li><strong>80/20 split:</strong> <span class="num" id="n-train">2,784</span> listings train the models and <span class="num" id="n-test">696</span> are held back. The test set is scored only once, at the end.</li>
-      <li><strong>5-fold cross-validation</strong> on the training set for tuning and to check that results are stable.</li>
+      <li><strong>80/20 split by host:</strong> <span class="num" id="n-train">2,861</span> listings train the models and <span class="num" id="n-test">616</span> listings from <em>other hosts</em> are held back. No host appears on both sides. The test set is scored only once, at the end.</li>
+      <li><strong>Host-grouped 5-fold cross-validation</strong> on the training set for tuning and to check that results are stable.</li>
       <li><strong>Metrics in dollars:</strong> MAE (average $ off per night), RMSE (penalises big misses), R² on log price, MAPE, and the share of listings priced within ±20%.</li>
     </ul>
   </div>
@@ -471,7 +511,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
 <!-- ============ 3. MODELS ============ -->
 <section class="block" id="models" aria-labelledby="models-h">
   <div class="sec-head">
-    <span class="step-no">Step 3</span>
+    <span class="step-no">Step 4</span>
     <h2 id="models-h">Five ways to predict a price</h2>
     <p>The methods range from a simple rule of thumb to ensembles of hundreds of trees. Each one makes a different assumption about how price relates to the features.</p>
   </div>
@@ -480,7 +520,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
       <h3>Baseline</h3>
       <p>The rule of thumb: charge the median of listings with the same neighbourhood and room type. Any real model has to beat it.</p>
       <div class="formula">price = median(hood, room)</div>
-      <dl><dt>Learns</dt><dd>25 × 4 medians</dd><dt>Limit</dt><dd>Ignores everything else</dd></dl>
+      <dl><dt>Learns</dt><dd>one median per area and room type</dd><dt>Limit</dt><dd>Ignores everything else</dd></dl>
     </div>
     <div class="model" style="--c: var(--m-ols)">
       <h3>Linear regression</h3>
@@ -512,9 +552,9 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
 <!-- ============ 4. COMPARISON ============ -->
 <section class="block" id="compare" aria-labelledby="cmp-h">
   <div class="sec-head">
-    <span class="step-no">Step 4</span>
+    <span class="step-no">Step 5</span>
     <h2 id="cmp-h">How the methods compare</h2>
-    <p>All five were scored on the same <span class="num" id="n-test2">696</span> held-out listings that no model saw during training or tuning.</p>
+    <p>All five were scored on the same <span class="num" id="n-test2">616</span> held-out listings, from hosts that no model saw during training or tuning.</p>
   </div>
   <div class="panel">
     <div class="table-scroll">
@@ -532,7 +572,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
     </div>
     <div class="panel">
       <h3>Stable across folds</h3>
-      <p class="cap">RMSE on log price in each of the 5 cross-validation folds. Tight clusters mean results don't depend on a lucky split.</p>
+      <p class="cap">RMSE on log price in each of the 5 host-grouped cross-validation folds. The black tick is the mean. Overlapping clusters mean the models are statistically tied.</p>
       <svg id="ch-cv" viewBox="0 0 480 220" width="100%" role="img" aria-label="Cross-validation scores by model"></svg>
     </div>
   </div>
@@ -569,7 +609,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
 <!-- ============ 5. VERDICT ============ -->
 <section class="block" id="verdict" aria-labelledby="ver-h">
   <div class="sec-head">
-    <span class="step-no">Step 5</span>
+    <span class="step-no">Step 6</span>
     <h2 id="ver-h">Which method fits pricing best</h2>
   </div>
   <div class="verdict">
@@ -577,22 +617,23 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
       <span class="label">Recommendation</span>
       <h3>Random forest sets the price; Lasso explains it.</h3>
       <ol class="reasons">
-        <li><strong>Most accurate.</strong> Random forest had the lowest cross-validated error and the lowest test MAE (<span class="num" id="v-rf-mae">$86</span>/night). That is <span class="num" id="v-improve">33%</span> less error than the neighbourhood-median rule of thumb.</li>
-        <li><strong>Captures interactions.</strong> A monthly minimum stay cuts the price of an entire home in Back Bay much more than a private room in Mattapan. Linear models can't represent that without hand-built interaction terms.</li>
-        <li><strong>Stable and low-maintenance.</strong> Gradient boosting comes within a dollar or two, but it needs more tuning and takes about 9× longer to train. The forest varies less from fold to fold.</li>
-        <li><strong>Lasso is kept for explanation.</strong> Lasso is about 20% less accurate, but its coefficients turn into plain statements such as "a private room is about 50% cheaper", which hosts trust. The calculator uses it for "Why this price".</li>
+        <li><strong>Honest testing changed the picture.</strong> Split at random, the tree models looked far ahead. Once each host's listings stay on one side, the four learned models are within cross-validation noise of each other (CV RMSE <span class="num" id="v-cv-range"></span>).</li>
+        <li><strong>Tie-break on stability.</strong> Among the tied models, random forest varies least from fold to fold. On hosts it never saw, it also has the lowest dollar error (<span class="num" id="v-rf-mae">$104</span>/night) and, with gradient boosting, the highest R².</li>
+        <li><strong>Every learned model beats the rule of thumb.</strong> The forest has <span class="num" id="v-improve">29%</span> less error than copying the neighbourhood median.</li>
+        <li><strong>Lasso is kept for explanation.</strong> It is only slightly less accurate, and its weights read as plain statements such as "a private room is about 49% cheaper". The calculator uses it for "Why this price".</li>
       </ol>
     </div>
     <div class="panel">
       <h3>Linear vs Lasso: why they tie</h3>
-      <p>With 48 features and about 2,800 training listings there is little overfitting for Lasso to fix, so the best α is tiny and the two models score almost the same. Lasso still removed <span id="v-zeroed">4</span> neighbourhood dummies whose prices match the city average. The model gets simpler and no accuracy is lost.</p>
+      <p>After screening, 43 features and about 2,900 training listings leave little overfitting for Lasso to fix, so the best α is tiny and the two models score almost the same. Lasso still removed <span id="v-zeroed">3</span> neighbourhood dummies whose prices match the city average. The model gets simpler and no accuracy is lost.</p>
     </div>
   </div>
   <div class="panel">
     <h3>Limits and next steps</h3>
     <ul class="plain">
       <li><strong>Asking price, not booked price.</strong> The models learn what hosts ask. Adding calendar occupancy would let us optimise revenue instead of matching the market.</li>
-      <li><strong>Missing property detail.</strong> Bathrooms, capacity, amenities and review scores from the detailed export would cut the error further. Today, just under half of test listings are priced within ±20%.</li>
+      <li><strong>Missing property detail.</strong> Bathrooms, capacity, amenities and review scores from the detailed export would cut the error further. Today, fewer than half of new-host listings are priced within ±20%.</li>
+      <li><strong>Host effects can't transfer.</strong> Much of the price variation is "who the host is". A new host can't be priced from that, which is why honest error is higher than a random split suggests.</li>
       <li><strong>One snapshot.</strong> Boston prices peak around graduation, the marathon and fall foliage. A calendar-based model would add date effects.</li>
       <li><strong>Retrain each quarter</strong> on the new Inside Airbnb release.</li>
     </ul>
@@ -604,7 +645,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
 
 <section class="block" aria-labelledby="q1-h" style="border-top:0; padding-top:24px">
   <div class="sec-head">
-    <span class="step-no">Step 6</span>
+    <span class="step-no">Step 7</span>
     <h3 id="q1-h" style="font-size:var(--step-3)">Four quarterly snapshots, two with prices</h3>
     <p>Phase 1 used a single snapshot (September 2026). Prices move through the year, so Phase 2 stacks four quarterly Inside Airbnb snapshots. Inside Airbnb published no prices for December and March, so those two quarters can't be scored. They still count: they show how many earlier quarters each listing was already live (its <em>tenure</em>), and the model prices their listing stock.</p>
   </div>
@@ -614,14 +655,14 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
 
 <section class="block" aria-labelledby="q2-h">
   <div class="sec-head">
-    <span class="step-no">Step 7</span>
+    <span class="step-no">Step 8</span>
     <h3 id="q2-h" style="font-size:var(--step-3)">Train on June, apply to the year</h3>
-    <p>On June data alone, random forest and gradient boosting tie (CV RMSE <span class="num" id="q-cv-rf"></span> vs <span class="num" id="q-cv-gb"></span>), so the Phase 1 winner stays. Trained on June only, it then prices September listings it has never seen. Listings are split <strong>by ID</strong>, so a test listing's June and September rows are both kept out of training.</p>
+    <p>On June data alone, random forest and gradient boosting tie (CV RMSE <span class="num" id="q-cv-rf"></span> vs <span class="num" id="q-cv-gb"></span>), so the Phase 1 winner stays. Trained on June only, it then prices September listings it has never seen. As in Phase 1, listings are split <strong>by host</strong>, so a test host's June and September listings are both kept out of training.</p>
   </div>
   <div class="grid-2">
     <div class="panel">
       <h3>Error on held-out listings</h3>
-      <p class="cap">Test MAE in $/night, scored separately on June and September. Every model is a random forest with the same settings; only the training data and features change.</p>
+      <p class="cap">Test MAE in $/night, scored separately on June and September. Every model is a random forest with the same settings; only the training data and features change. ★ = lowest error averaged over both quarters.</p>
       <div class="legend"><span><span class="swatch" style="background:var(--jun)"></span>June test listings</span><span><span class="swatch" style="background:var(--sep)"></span>September test listings</span></div>
       <svg id="ch-exp" viewBox="0 0 480 330" width="100%" role="img" aria-label="Test error by experiment and quarter"></svg>
     </div>
@@ -640,7 +681,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
 
 <section class="block" aria-labelledby="q3-h">
   <div class="sec-head">
-    <span class="step-no">Step 8</span>
+    <span class="step-no">Step 9</span>
     <h3 id="q3-h" style="font-size:var(--step-3)">Time and zone features, and how the weights move</h3>
     <p><strong>Time:</strong> a quarter indicator, tenure (earlier quarters live, 0-3) and days since the last review. <strong>Zone:</strong> distance rings around Boston Common (under 2 km, 2-5 km, over 5 km) and 8 geographic clusters fitted on all four quarters, which cut across neighbourhood lines.</p>
   </div>
@@ -670,7 +711,8 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
       <h3 id="q-headline">Pooling the quarters with time and zone cuts September error.</h3>
       <ol class="reasons">
         <li><strong>A snapshot model goes stale.</strong> The June-only model over-prices September by <span class="num" id="q-bias-jo"></span> and its error rises to <span class="num" id="q-mae-jo"></span>/night.</li>
-        <li><strong>Using every quarter helps most.</strong> Pooling June and September does most of the work. Time features, zones and 2× weight on the newer quarter each trim a little more, reaching <span class="num" id="q-mae-fin"></span>/night on September.</li>
+        <li><strong>Using every quarter helps most.</strong> Pooling June and September does most of the work. Time features, zones and 2× weight on the newer quarter each trim a little more, reaching <span class="num" id="q-mae-fin"></span>/night on September and the lowest error averaged over both quarters.</li>
+        <li><strong>Why not September only?</strong> A September-only model is marginally better on September (<span class="num" id="q-mae-sep"></span>) but one of the worst on June (<span class="num" id="q-mae-sepjun"></span>). A model that prices any quarter has to be judged on all of them.</li>
         <li><strong>Weights move between quarters.</strong> The license premium shrinks from summer to fall, and Downtown, Fenway and "view" listings hold their value better. One fixed set of weights can't serve the whole year.</li>
         <li><strong>Some bias remains</strong> (about <span class="num" id="q-bias-fin"></span> on September). With only two priced quarters, the model has one seasonal contrast to learn from. Priced December and March files would turn the quarter flag into a full season feature.</li>
       </ol>
@@ -735,6 +777,9 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
   $("v-rf-mae").textContent = fmt$(metrics["Random Forest"]["MAE_$"]);
   $("v-improve").textContent = Math.round(M.baseline_improvement * 100) + "%";
   $("beds-share").textContent = Math.round(M.bedrooms_known_share * 100) + "%";
+  $("n-hoods").textContent = P.neighbourhoods.length;
+  var learned = ["Linear Regression", "Lasso", "Random Forest", "Gradient Boosting"].map(function (n) { return metrics[n].CV_RMSE_log; });
+  $("v-cv-range").textContent = Math.min.apply(null, learned).toFixed(3) + "–" + Math.max.apply(null, learned).toFixed(3);
 
   /* ---------- metrics table ---------- */
   var tb = document.querySelector("#tbl-metrics tbody");
@@ -859,6 +904,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
     "bedrooms": "Bedrooms", "bedrooms_known": "Bedrooms stated in title", "kw_parking": "Parking", "kw_luxury": "Modern / renovated",
     "kw_view": "View / rooftop", "kw_amenities": "Gym / pool / concierge", "kw_managed": "Furnished, managed brand",
     "neighbourhood (one-hot)": "Neighbourhood", "Neighbourhood (one-hot)": "Neighbourhood",
+    "host_size_band": "Host size band", "kw_managed": "Furnished, managed brand",
     "q_sep": "Quarter (Sep vs Jun)", "tenure_q": "Tenure (quarters live)", "days_since_review": "Days since last review",
     "Zones (rings + clusters)": "Zones (rings + clusters)"
   };
@@ -867,6 +913,64 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
     var imp = Object.keys(P.importance).map(function (k) { return { k: k, v: P.importance[k] }; }).filter(function (r) { return r.v > 0; }).slice(0, 12);
     $("ch-imp").setAttribute("viewBox", "0 0 440 " + (imp.length * 28 + 12));
     hbar($("ch-imp"), imp.map(function (r) { return { label: nice(r.k), v: r.v, text: r.v.toFixed(3), color: "var(--harbor)" }; }), { w: 440, left: 186, right: 50, rowH: 28 });
+  })();
+
+  /* ---------- pre-check & screening ---------- */
+  (function () {
+    var tb = document.querySelector("#tbl-pre tbody");
+    P.precheck.forEach(function (r) {
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td></td><td class='num'></td><td></td>";
+      tr.children[0].textContent = r.check;
+      tr.children[1].textContent = r.rows.toLocaleString("en-US");
+      tr.children[2].textContent = r.rows ? r.action : "nothing found";
+      if (!r.rows) tr.style.color = "var(--muted)";
+      tb.appendChild(tr);
+    });
+
+    var DEC = { monthly: "drop", log_host_listings: "replace", kw_managed: "drop", shared_room: "drop" };
+    var rows = P.screening.slice().sort(function (a, b) { return b.mutual_info - a.mutual_info; });
+    var svg = $("ch-screen"), W = 480, L = 196, R = 46, rowH = 25, T = 4;
+    svg.setAttribute("viewBox", "0 0 " + W + " " + (T + rows.length * rowH + 20));
+    var mx = Math.max.apply(null, rows.map(function (r) { return Math.max(Math.abs(r.spearman), r.mutual_info); }));
+    var x = linScale(0, mx, L, W - R);
+    [0, 0.1, 0.2, 0.3, 0.4, 0.5].forEach(function (v) { if (v <= mx) { el("line", { x1: x(v), x2: x(v), y1: T, y2: T + rows.length * rowH, "class": "grid" }, svg); el("text", { x: x(v), y: T + rows.length * rowH + 14, "text-anchor": "middle" }, svg, v.toFixed(1)); } });
+    rows.forEach(function (r, i) {
+      var y = T + i * rowH, d = DEC[r.feature];
+      var lab = el("text", { x: L - 8, y: y + 16, "text-anchor": "end", "class": d ? "" : "ink" }, svg, (d === "drop" ? "✕ " : d === "replace" ? "↻ " : "") + nice(r.feature));
+      if (d) lab.setAttribute("text-decoration", d === "drop" ? "line-through" : "none");
+      el("rect", { x: L, y: y + 4, width: Math.max(1, x(Math.abs(r.spearman)) - L), height: 8, fill: "var(--harbor)", rx: 1, opacity: d ? 0.45 : 1 }, svg);
+      el("rect", { x: L, y: y + 13, width: Math.max(1, x(r.mutual_info) - L), height: 8, fill: "var(--m-ols)", rx: 1, opacity: d ? 0.45 : 1 }, svg);
+      if (r.VIF > 10) el("text", { x: Math.max(x(Math.abs(r.spearman)), x(r.mutual_info)) + 6, y: y + 16, style: "fill: var(--brick)" }, svg, "VIF " + r.VIF.toFixed(0));
+    });
+
+    var lk = P.leak, box = $("leak");
+    [["Random split", lk.random], ["Split by host", lk.grouped]].forEach(function (t, i) {
+      var d = document.createElement("div"); d.className = "qprice"; d.dataset.active = i ? "true" : "false";
+      d.innerHTML = "<span class='label'></span><span class='v'></span>";
+      d.querySelector(".label").textContent = t[0] + " · CV RMSE"; d.querySelector(".v").textContent = t[1].toFixed(3);
+      box.appendChild(d);
+    });
+    $("leak-note").textContent = "Error rises " + Math.round((lk.grouped / lk.random - 1) * 100) + "% when the model can't see a test listing's siblings. With " + lk.hosts.toLocaleString("en-US") + " hosts, and up to " + lk.largest_host + " listings for one host, a random split was optimistic. Every result on this page now uses the host split, which is the honest test for a new host.";
+
+    var tbd = document.querySelector("#tbl-dec tbody");
+    P.decisions.forEach(function (r) {
+      var tr = document.createElement("tr"); tr.innerHTML = "<td class='mono'></td><td></td><td></td>";
+      tr.children[0].textContent = r.variable; tr.children[2].textContent = r.evidence;
+      var chip = document.createElement("span"); chip.className = "chip " + (/^Drop/.test(r.decision) ? "drop" : /^Replace/.test(r.decision) ? "src" : "use");
+      chip.textContent = r.decision; tr.children[1].appendChild(chip); tbd.appendChild(tr);
+    });
+
+    var ta = document.querySelector("#tbl-abl tbody"), keys = Object.keys(P.ablation[0]);
+    var rfK = keys.filter(function (k) { return /Random Forest/.test(k); })[0], laK = keys.filter(function (k) { return /Lasso/.test(k); })[0];
+    P.ablation.forEach(function (r, i) {
+      var tr = document.createElement("tr"); if (i === P.ablation.length - 1) tr.className = "best";
+      tr.innerHTML = "<td></td><td class='num'>" + r[rfK].toFixed(4) + "</td><td class='num'>" + r[laK].toFixed(4) + "</td>";
+      tr.children[0].textContent = r.pipeline.replace(/^\d\.\s*/, ""); ta.appendChild(tr);
+    });
+    var a0 = P.ablation[0], a2 = P.ablation[P.ablation.length - 1];
+    var pct = function (a, b) { var v = (1 - b / a) * 100; return (v >= 0 ? v.toFixed(1) + "% lower" : Math.abs(v).toFixed(1) + "% higher"); };
+    $("abl-note").textContent = "Final pipeline vs original: random forest error " + pct(a0[rfK], a2[rfK]) + ", Lasso " + pct(a0[laK], a2[laK]) + ". The gains are modest, so the main value of the recheck is a simpler, non-leaking model and an honest error estimate.";
   })();
 
   /* ---------- phase 2: quarterly ---------- */
@@ -927,6 +1031,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
     var jo = EX["June-only"]["Sep 2026"], fin = EX[Q.final]["Sep 2026"];
     $("q-bias-jo").textContent = fmtPct(jo["bias_%"]); $("q-mae-jo").textContent = fmt$(jo["MAE_$"]);
     $("q-mae-fin").textContent = fmt$(fin["MAE_$"]); $("q-bias-fin").textContent = fmtPct(fin["bias_%"]);
+    $("q-mae-sep").textContent = fmt$(EX["Sep-only"]["Sep 2026"]["MAE_$"]); $("q-mae-sepjun").textContent = fmt$(EX["Sep-only"]["Jun 2026"]["MAE_$"]);
     $("q-headline").textContent = "Pooling the quarters with time and zone cuts September error by " + Math.round((1 - fin["MAE_$"] / jo["MAE_$"]) * 100) + "%.";
 
     // weights dumbbell
@@ -967,8 +1072,9 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
   })();
 
   /* ---------- map ---------- */
-  var hoodStats = {};
+  var hoodStats = {}, MERGE = P.hood_merge || {};
   P.hood_stats.forEach(function (h) { hoodStats[h.neighbourhood] = h; });
+  var statName = function (n) { return MERGE[n] || n; };
   var mapSvg = $("map"), lat0 = 42.32, kx = Math.cos(lat0 * Math.PI / 180), SCALE = 2400;
   var bounds = { minX: -71.195, maxX: -70.98, minY: 42.225, maxY: 42.40 };
   var px = function (lon) { return (lon - bounds.minX) * kx * SCALE; };
@@ -986,9 +1092,9 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
       poly[0].forEach(function (p, i) { d += (i ? "L" : "M") + px(p[0]).toFixed(1) + "," + py(p[1]).toFixed(1); });
       d += "Z";
     });
-    var st = hoodStats[name], pct = st ? 12 + 88 * (Math.log(st.median) - Math.log(mLo)) / (Math.log(mHi) - Math.log(mLo)) : 0;
+    var st = hoodStats[statName(name)], pct = st ? 12 + 88 * (Math.log(st.median) - Math.log(mLo)) / (Math.log(mHi) - Math.log(mLo)) : 0;
     var p = el("path", { d: d, fill: st ? "color-mix(in oklab, var(--brick) " + pct.toFixed(0) + "%, var(--surface))" : "var(--line)" }, mapSvg);
-    el("title", {}, p, name + (st ? " · median " + fmt$(st.median) + " · " + st.count + " listings" : " · no listings"));
+    el("title", {}, p, name + (MERGE[name] ? " (counted with " + MERGE[name] + ")" : "") + (st ? " · median " + fmt$(st.median) + " · " + st.count + " listings" : " · no listings"));
     if (!st) p.setAttribute("class", "disabled");
     p.dataset.name = name;
     (paths[name] = paths[name] || []).push(p);
@@ -999,12 +1105,12 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
 
   mapSvg.addEventListener("click", function (ev) {
     var t = ev.target;
-    if (t.tagName !== "path" || !hoodStats[t.dataset.name]) return;
+    if (t.tagName !== "path" || !hoodStats[statName(t.dataset.name)]) return;
     var pt = mapSvg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
     var loc = pt.matrixTransform(mapSvg.getScreenCTM().inverse());
     state.lon = loc.x / (kx * SCALE) + bounds.minX;
     state.lat = bounds.maxY - loc.y / SCALE;
-    state.neighbourhood = t.dataset.name;
+    state.neighbourhood = statName(t.dataset.name);
     $("in-hood").value = state.neighbourhood;
     update();
   });
@@ -1016,7 +1122,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
     var o = document.createElement("option"); o.value = n; o.textContent = n; hoodSel.appendChild(o);
   });
   var state = {};
-  var KW = ["kw_parking", "kw_luxury", "kw_view", "kw_amenities", "kw_managed"];
+  var KW = ["kw_parking", "kw_luxury", "kw_view", "kw_amenities"];
 
   function setQuarter(v) {
     Array.prototype.forEach.call($("in-q").children, function (b) { b.setAttribute("aria-pressed", b.dataset.v === v ? "true" : "false"); });
@@ -1046,7 +1152,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
   var PRESETS = {
     "new": { hood: "Fenway", room: "Entire home/apt", beds: 0, min: 2, avail: 300, rev: 0, rpm: 0, ltm: 0, host: 1, lic: "licensed", kw: ["kw_luxury"], tenure: 0, recent: 0 },
     "room": { hood: "Jamaica Plain", room: "Private room", beds: 1, min: 1, avail: 250, rev: 80, rpm: 2.5, ltm: 25, host: 1, lic: "licensed", kw: [], tenure: 3, recent: 10 },
-    "monthly": { hood: "Back Bay", room: "Entire home/apt", beds: 1, min: 32, avail: 330, rev: 12, rpm: 0.4, ltm: 3, host: 40, lic: "none", kw: ["kw_managed", "kw_amenities"], tenure: 2, recent: 60 },
+    "monthly": { hood: "Back Bay", room: "Entire home/apt", beds: 1, min: 32, avail: 330, rev: 12, rpm: 0.4, ltm: 3, host: 40, lic: "none", kw: ["kw_amenities"], tenure: 2, recent: 60 },
     "start": { hood: "South End", room: "Entire home/apt", beds: 2, min: 2, avail: 180, rev: 25, rpm: 1.5, ltm: 10, host: 1, lic: "licensed", kw: ["kw_luxury"], tenure: 3, recent: 20 }
   };
   function applyPreset(k) {
@@ -1089,6 +1195,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
         (r.feature === "log_reviews" || r.feature === "reviews_per_month" || r.feature === "number_of_reviews_ltm") ? "Review history" :
         (r.feature === "bedrooms" || r.feature === "bedrooms_known") ? "Bedrooms" :
         (r.feature === "licensed" || r.feature === "exempt") ? "License status" :
+        (r.feature === "host_size_band") ? "Host size" :
         (r.feature === "private_room" || r.feature === "hotel_room" || r.feature === "shared_room") ? "Room type" : nice(r.feature);
       grouped[key] = (grouped[key] || 0) + r.logpts;
     });
@@ -1135,7 +1242,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
       box.appendChild(d);
     });
     $("out-range-note").textContent = "80% of comparable listings would sit between " + fmt$(q.low) + " and " + fmt$(q.high) + " (based on the model's errors on unseen listings). Your location falls in zone " + Q.zones.names[q.zone] + ". The red marker shows the median for " + state.neighbourhood + ".";
-    Object.keys(paths).forEach(function (n) { paths[n].forEach(function (p) { p.setAttribute("class", (hoodStats[n] ? "" : "disabled") + (n === state.neighbourhood ? " sel" : "")); if (n === state.neighbourhood) p.parentNode.insertBefore(p, pin); }); });
+    Object.keys(paths).forEach(function (n) { var on = statName(n) === state.neighbourhood; paths[n].forEach(function (p) { p.setAttribute("class", (hoodStats[statName(n)] ? "" : "disabled") + (on ? " sel" : "")); if (on) p.parentNode.insertBefore(p, pin); }); });
     pin.setAttribute("transform", "translate(" + px(state.lon).toFixed(1) + "," + py(state.lat).toFixed(1) + ")");
     drawRange(q.price, q.low, q.high); drawModels(res, q.price); drawDrivers(x); drawHoods();
   }

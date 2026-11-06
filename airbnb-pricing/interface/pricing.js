@@ -12,33 +12,41 @@
     var CENTER = P.meta.center;
     var KW = Object.keys(P.keywords);
 
-    /* listing: {neighbourhood, room_type, bedrooms, minimum_nights, number_of_reviews,
+    var HOST_BANDS = P.host_bands;               // upper bounds: 1 | 3 | 10 | 50 -> bands 0..4
+    var ROOM_MERGE = P.room_merge || {}, HOOD_MERGE = P.hood_merge || {};
+
+    /* Same rules as src/pricing_features.py (pre-check merges, caps and build_features).
+       listing: {neighbourhood, room_type, bedrooms, minimum_nights, number_of_reviews,
        reviews_per_month, number_of_reviews_ltm, host_listings, availability_365,
        license: "licensed"|"exempt"|"none", lat, lon, kw: {kw_parking: bool, ...}} */
+    function featureDict(L) {
+      var room = ROOM_MERGE[L.room_type] || L.room_type;
+      var hood = HOOD_MERGE[L.neighbourhood] || L.neighbourhood;
+      var mn = Math.min(365, L.minimum_nights > 0 ? L.minimum_nights : 1);
+      var reviews = Math.max(0, L.number_of_reviews || 0);
+      var rpm = reviews === 0 ? 0 : Math.min(15, Math.max(0, L.reviews_per_month || 0));
+      var host = Math.max(1, L.host_listings || 1), band = 0;
+      while (band < HOST_BANDS.length - 1 && host > HOST_BANDS[band + 1]) band++;
+      var d = {
+        bedrooms: L.bedrooms, bedrooms_known: 1,
+        private_room: room === "Private room" ? 1 : 0, hotel_room: room === "Hotel room" ? 1 : 0,
+        shared_room: room === "Shared room" ? 1 : 0,
+        log_min_nights: Math.log1p(mn), monthly: mn >= 28 ? 1 : 0,
+        log_reviews: Math.log1p(reviews), reviews_per_month: rpm,
+        number_of_reviews_ltm: Math.min(reviews, Math.max(0, L.number_of_reviews_ltm || 0)),
+        host_size_band: band, log_host_listings: Math.log1p(host),
+        availability_365: L.availability_365,
+        licensed: L.license === "licensed" ? 1 : 0, exempt: L.license === "exempt" ? 1 : 0,
+        dist_km: Math.sqrt(Math.pow((L.lat - CENTER[0]) * 111.0, 2) + Math.pow((L.lon - CENTER[1]) * 82.0, 2)),
+        latitude: L.lat, longitude: L.lon
+      };
+      KW.forEach(function (k) { d[k] = L.kw && L.kw[k] ? 1 : 0; });
+      d["nb_" + hood] = 1;
+      return d;
+    }
     function features(L) {
-      var x = new Array(F.length).fill(0);
-      var mn = L.minimum_nights > 0 ? L.minimum_nights : 1;
-      x[idx.bedrooms] = L.bedrooms;
-      x[idx.bedrooms_known] = 1;
-      x[idx.private_room] = L.room_type === "Private room" ? 1 : 0;
-      x[idx.hotel_room] = L.room_type === "Hotel room" ? 1 : 0;
-      x[idx.shared_room] = L.room_type === "Shared room" ? 1 : 0;
-      x[idx.log_min_nights] = Math.log1p(mn);
-      x[idx.monthly] = mn >= 28 ? 1 : 0;
-      x[idx.log_reviews] = Math.log1p(L.number_of_reviews);
-      x[idx.reviews_per_month] = L.reviews_per_month;
-      x[idx.number_of_reviews_ltm] = L.number_of_reviews_ltm;
-      x[idx.log_host_listings] = Math.log1p(L.host_listings);
-      x[idx.availability_365] = L.availability_365;
-      x[idx.licensed] = L.license === "licensed" ? 1 : 0;
-      x[idx.exempt] = L.license === "exempt" ? 1 : 0;
-      x[idx.dist_km] = Math.sqrt(Math.pow((L.lat - CENTER[0]) * 111.0, 2) + Math.pow((L.lon - CENTER[1]) * 82.0, 2));
-      x[idx.latitude] = L.lat;
-      x[idx.longitude] = L.lon;
-      KW.forEach(function (k) { x[idx[k]] = L.kw && L.kw[k] ? 1 : 0; });
-      var nb = idx["nb_" + L.neighbourhood];
-      if (nb !== undefined) x[nb] = 1;
-      return x;
+      var d = featureDict(L);
+      return F.map(function (f) { return d[f] || 0; });
     }
 
     // Trees are stored in pre-order (left child of node i is i+1); rebuild right-child indexes once.
@@ -72,7 +80,7 @@
     function baseline(M, x) {
       var hood = null;
       F.forEach(function (f, i) { if (f.indexOf("nb_") === 0 && x[i] === 1) hood = f; });
-      var room = x[idx.private_room] ? "private" : x[idx.hotel_room] ? "hotel" : x[idx.shared_room] ? "shared" : "entire";
+      var room = x[idx.private_room] ? "private" : x[idx.hotel_room] ? "hotel" : "entire";
       var key = hood + "|" + room;
       if (key in M.cell) return M.cell[key];
       return room in M.room ? M.room[room] : M.all;

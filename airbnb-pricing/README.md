@@ -13,7 +13,8 @@ Predictive-analytics project that recommends a nightly price for a Boston Airbnb
 | `interface/data.js` | Metrics, chart data and map exported by the notebooks (small, loads first) |
 | `interface/models.js` | Trained models exported by the notebooks (loaded in the background) |
 | `scripts/build_notebook.py`, `scripts/build_quarterly_notebook.py` | Sources of the notebook cells |
-| `scripts/verify_js.js` | Checks that the browser predictions match Python |
+| `src/pricing_features.py` | Shared data pre-check, cleaning rules and feature builder used by both notebooks |
+| `scripts/verify_js.js`, `scripts/feature_parity.py` | Check that the browser builds the same features and predictions as Python |
 
 ## Reproduce
 
@@ -22,23 +23,37 @@ pip install scikit-learn pandas numpy matplotlib nbformat nbconvert ipykernel
 python scripts/build_notebook.py
 python scripts/build_quarterly_notebook.py
 cd notebooks && jupyter nbconvert --to notebook --execute --inplace boston_airbnb_pricing.ipynb && jupyter nbconvert --to notebook --execute --inplace boston_airbnb_quarterly.ipynb && cd ..
+python scripts/feature_parity.py
 node scripts/verify_js.js
 ```
 
-## Phase 1 result (Sep 2026 snapshot, held-out test set, 696 listings)
+## Data pre-check and variable screening
 
-| Model | Test MAE ($/night) | R² (log price) |
+Every row goes through `pricing_features.precheck()` (duplicates, impossible or inconsistent values, locations vs neighbourhood boundaries, missing values, rare categories). Every candidate variable is then ranked by Spearman correlation and mutual information with log price, checked for redundancy (VIF) and for leakage.
+
+Key finding: the host's listing count acted as a host fingerprint, and a random train/test split let the model see a test listing's sibling units. All evaluation is therefore **split by host**: no host appears in both training and test data.
+
+| Pipeline (host-grouped 5-fold CV, RMSE on log price) | Random forest | Lasso |
 |---|---|---|
-| Baseline (neighbourhood × room-type median) | 128 | 0.40 |
-| Linear regression | 104 | 0.68 |
-| Lasso | 104 | 0.68 |
-| **Random forest** | **86** | **0.79** |
-| Gradient boosting | 88 | 0.78 |
+| Original (price filter only, all candidates) | 0.440 | 0.451 |
+| + pre-check cleaning | 0.443 | 0.441 |
+| + variable screening (final, 43 features) | **0.433** | 0.443 |
 
-## Phase 2 result (random forest, listings held out by ID, scored on September)
+## Phase 1 result (Sep 2026 snapshot, 616 test listings from unseen hosts)
 
-| Experiment | Sep MAE ($/night) | Sep median bias |
-|---|---|---|
-| Trained on June only | 101 | +12.5% |
-| Pooled Jun + Sep | 87 | +7.1% |
-| Pooled + time + zone, Sep weighted 2× | **83** | +5.1% |
+| Model | CV RMSE (log) | Test MAE ($/night) | R² (log) |
+|---|---|---|---|
+| Baseline (neighbourhood × room-type median) | 0.635 | 146 | 0.22 |
+| Linear regression | 0.452 | 111 | 0.58 |
+| Lasso | 0.450 | 111 | 0.58 |
+| **Random forest** (chosen: tied best, most stable) | 0.449 | **104** | 0.63 |
+| Gradient boosting | 0.447 | 105 | 0.63 |
+
+## Phase 2 result (random forest, hosts held out, scored on June and September)
+
+| Experiment | Jun MAE | Sep MAE | Sep median bias |
+|---|---|---|---|
+| Trained on June only | 120 | 126 | +11.9% |
+| Trained on September only | 124 | 114 | +3.7% |
+| Pooled Jun + Sep | 118 | 117 | +7.6% |
+| **Pooled + time + zone, Sep weighted 2×** (lowest average) | 117 | 114 | +4.8% |

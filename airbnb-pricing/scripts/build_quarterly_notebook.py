@@ -16,7 +16,7 @@ code = lambda s: cells.append(nbf.v4.new_code_cell(s.strip()))
 md(r"""
 # Phase 2: From one snapshot to a year of quarters
 
-Phase 1 trained five models on a single Inside Airbnb snapshot and found that **Random Forest** with 48 listing features prices best. Prices move during the year, so this notebook asks three questions:
+Phase 1 pre-checked the data, screened the variables down to 43 features, and found that **Random Forest** is the most reliable pricing model under host-grouped evaluation. Prices move during the year, so this notebook asks three questions:
 
 1. **Does a model trained on one quarter (June) still work in later quarters?** We test it on September listings it has never seen.
 2. **Do time and zone features help?** We pool the quarters, add *time* features (quarter, how long a listing has been live) and *zone* features (distance ring and geographic clusters), and measure the gain.
@@ -48,6 +48,9 @@ from sklearn.pipeline import Pipeline
 from sklearn.cluster import KMeans
 from sklearn.inspection import permutation_importance
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import sys
+sys.path.insert(0, "../src")
+import pricing_features as pf   # same pre-check and features as Phase 1
 
 warnings.filterwarnings("ignore")
 plt.rcParams.update({"figure.dpi": 110, "axes.spines.top": False, "axes.spines.right": False})
@@ -61,16 +64,44 @@ QUARTERS = [  # code, label, file, approx. scrape date
 ]
 """)
 
-md("## 1. Load and stack the quarters")
+md(r"""
+## 1. Load, pre-check and stack the quarters
+
+Every quarter goes through the same pre-check as Phase 1 (`src/pricing_features.py::precheck`). Price rules are applied afterwards, only to the priced quarters, so December and March keep all their listings for the tenure and stock analysis.
+""")
 
 code(r"""
-frames = []
+official = pd.read_csv(DATA / "neighbourhoods.csv")["neighbourhood"]
+geo = pf.load_geo(DATA / "neighbourhoods.geojson")
+NEIGHBOURHOODS = pf.model_neighbourhoods(official)
+CENTER = pf.CENTER
+frames, reports = [], {}
 for i, (q, label, f, scraped) in enumerate(QUARTERS):
-    d = pd.read_csv(QDIR / f)
+    raw = pd.read_csv(QDIR / f)
+    raw["price"] = pd.to_numeric(raw["price"], errors="coerce")
+    d, rep_q = pf.precheck(raw, official, geo, require_price=False)
+    reports[label] = rep_q.set_index("check")["rows"]
     d["quarter"], d["q_label"], d["q_idx"], d["scraped"] = q, label, i, pd.Timestamp(scraped)
     frames.append(d)
 A = pd.concat(frames, ignore_index=True)
-A["price"] = pd.to_numeric(A["price"], errors="coerce")
+
+# Cross-quarter check: some rows have no host at all. Recover it from the same listing in another quarter.
+miss = A["host_id"].isna()
+known = A.loc[~miss].drop_duplicates("id").set_index("id")[["host_id", "calculated_host_listings_count"]]
+rec = A.loc[miss, "id"].map(known["host_id"])
+A.loc[miss, "host_id"] = rec
+A.loc[miss, "calculated_host_listings_count"] = A.loc[miss, "id"].map(known["calculated_host_listings_count"]).fillna(1)
+still = A["host_id"].isna()
+host_fix = A.loc[miss].groupby("q_label").size().to_frame("host missing")
+host_fix["recovered from another quarter"] = A.loc[miss & ~still].groupby("q_label").size()
+host_fix = host_fix.fillna(0).astype(int)
+print("Host information missing:"); display(host_fix)
+A = A[~still].copy()
+for label in reports:
+    reports[label]["Host missing (recovered or dropped)"] = int(host_fix["host missing"].get(label, 0))
+precheck_q = pd.DataFrame(reports)
+print("Pre-check, rows affected per quarter:")
+display(precheck_q)
 
 summary = A.groupby("q_label", sort=False).agg(
     listings=("id", "size"), priced=("price", lambda s: s.notna().sum()),
@@ -93,48 +124,9 @@ md(r"""
 """)
 
 code(r"""
-CENTER = (42.3550, -71.0656)
-KEYWORDS = {
-    "kw_parking":   r"parking|garage",
-    "kw_luxury":    r"luxur|modern|renovat|designer|stylish|chic|upscale|elegant",
-    "kw_view":      r"view|rooftop|roof deck|skyline|waterfront|harbor",
-    "kw_amenities": r"gym|pool|fitness|concierge|doorman",
-    "kw_managed":   r"blueground|sonder|landing|kasa|furnished|corporate",
-}
-NEIGHBOURHOODS = sorted(pd.read_csv(DATA / "neighbourhoods.csv")["neighbourhood"])
-
-def extract_bedrooms(title):
-    t = title.lower()
-    if "studio" in t:
-        return 0
-    m = re.search(r"(\d+)\s*-?\s*(?:br\b|bd\b|bdr|bed|bedroom|b/r)", t)
-    return min(int(m.group(1)), 8) if m else np.nan
-
 def base_features(d):
-    # Identical to Phase 1 build_features(): the 48 snapshot features
-    title = d["name"].fillna("").str.lower()
-    beds = d["name"].fillna("").map(extract_bedrooms)
-    lic = d["license"].fillna("").str.lower()
-    mn = d["minimum_nights"].fillna(1)
-    X = pd.DataFrame(index=d.index)
-    X["bedrooms"] = beds.fillna(1); X["bedrooms_known"] = beds.notna().astype(int)
-    X["private_room"] = (d["room_type"] == "Private room").astype(int)
-    X["hotel_room"] = (d["room_type"] == "Hotel room").astype(int)
-    X["shared_room"] = (d["room_type"] == "Shared room").astype(int)
-    X["log_min_nights"] = np.log1p(mn); X["monthly"] = (mn >= 28).astype(int)
-    X["log_reviews"] = np.log1p(d["number_of_reviews"])
-    X["reviews_per_month"] = d["reviews_per_month"].fillna(0)
-    X["number_of_reviews_ltm"] = d["number_of_reviews_ltm"]
-    X["log_host_listings"] = np.log1p(d["calculated_host_listings_count"].fillna(1))  # 36 June rows blank
-    X["availability_365"] = d["availability_365"]
-    X["licensed"] = lic.str.startswith("str").astype(int); X["exempt"] = lic.str.contains("exempt").astype(int)
-    X["dist_km"] = np.sqrt(((d["latitude"] - CENTER[0]) * 111.0) ** 2 + ((d["longitude"] - CENTER[1]) * 82.0) ** 2)
-    X["latitude"] = d["latitude"]; X["longitude"] = d["longitude"]
-    for k, pat in KEYWORDS.items():
-        X[k] = title.str.contains(pat).astype(int)
-    for h in NEIGHBOURHOODS:
-        X["nb_" + h] = (d["neighbourhood"] == h).astype(int)
-    return X.astype(float)
+    # Exactly the Phase 1 screened feature set
+    return pf.build_features(d, NEIGHBOURHOODS, screened=True)
 
 BASE = list(base_features(A.head(2)).columns)
 
@@ -181,7 +173,7 @@ plt.tight_layout(); plt.show()
 md(r"""
 ## 3. Experimental design
 
-The same listing usually appears in several quarters at a similar price. A random row split would put a listing's June row in training and its September row in test, so the model would only have to remember it. To prevent that, we **split by listing ID**: 20% of listings are held out, and none of their rows, in any quarter, are used for training.
+The same listing usually appears in several quarters at a similar price. A random row split would put a listing's June row in training and its September row in test, so the model would only have to remember it. Phase 1 also showed that listings of the same host share a price level. So we **split by host**: 20% of hosts are held out, and none of their listings, in any quarter, are used for training.
 
 Every experiment is scored on the same held-out listings, **separately for June and for September**.
 """)
@@ -190,9 +182,9 @@ code(r"""
 P = A[A["price"].between(30, 2000)].copy()            # priced rows only (Jun + Sep)
 P["y"] = np.log(P["price"])
 gss = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=SEED)
-tr_idx, te_idx = next(gss.split(P, groups=P["id"]))
+tr_idx, te_idx = next(gss.split(P, groups=P["host_id"]))
 TR, TE = P.iloc[tr_idx], P.iloc[te_idx]
-assert not set(TR["id"]) & set(TE["id"])
+assert not set(TR["host_id"]) & set(TE["host_id"])
 print(TR.groupby("q_label").size().to_dict(), "train |", TE.groupby("q_label").size().to_dict(), "test")
 
 def score(y_log, p_log):
@@ -200,7 +192,11 @@ def score(y_log, p_log):
     return {"MAE_$": mean_absolute_error(t, p), "R2_log": r2_score(y_log, p_log),
             "within_20%": np.mean(np.abs(p - t) / t <= .2) * 100, "bias_%": (np.median(p / t) - 1) * 100}
 
-RF_PARAMS = dict(n_estimators=150, max_depth=14, min_samples_leaf=2, max_features=0.5, random_state=SEED, n_jobs=-1)
+# Re-use the hyper-parameters tuned in Phase 1
+_js = (OUT / "data.js").read_text(); PHASE1 = json.loads(_js[_js.index("{"): _js.rindex("}") + 1])["meta"]
+RF_PARAMS = dict(n_estimators=150, random_state=SEED, n_jobs=-1, **PHASE1["rf_params"])
+GB_PARAMS = dict(subsample=0.8, random_state=SEED, **PHASE1["gb_params"])
+print("Phase 1 settings:", PHASE1["rf_params"], PHASE1["gb_params"])
 """)
 
 md(r"""
@@ -211,12 +207,12 @@ Before reusing Phase 1's choice, we re-run the method comparison (the four learn
 
 code(r"""
 jun_tr = TR[TR["quarter"] == "2026Q2"]
-Xj, yj, gj = FULL_X.loc[jun_tr.index, BASE], jun_tr["y"], jun_tr["id"]
+Xj, yj, gj = FULL_X.loc[jun_tr.index, BASE], jun_tr["y"], jun_tr["host_id"]
 cands = {
     "Linear Regression": Pipeline([("s", StandardScaler()), ("m", LinearRegression())]),
     "Lasso": Pipeline([("s", StandardScaler()), ("m", LassoCV(alphas=np.logspace(-4, 0, 40), max_iter=50000))]),
     "Random Forest": RandomForestRegressor(**RF_PARAMS),
-    "Gradient Boosting": GradientBoostingRegressor(n_estimators=600, learning_rate=0.06, max_depth=4, subsample=0.8, random_state=SEED),
+    "Gradient Boosting": GradientBoostingRegressor(**GB_PARAMS),
 }
 june_cv = {n: -cross_val_score(m, Xj, yj, groups=gj, cv=GroupKFold(5), scoring="neg_root_mean_squared_error").mean()
            for n, m in cands.items()}
@@ -228,7 +224,7 @@ MODEL_USED = "Random Forest"   # tie on June -> keep the Phase 1 winner (faster,
 """)
 
 md(r"""
-**Reading.** On June, Random Forest and Gradient Boosting **tie**: the gap is a fraction of a thousandth, far smaller than the variation between folds. The linear models again trail by about 0.07. Because the two tree models tie, we keep **Random Forest**, the Phase 1 winner. It trains about 9× faster, needs less tuning, and its accuracy is the same.
+**Reading.** On June, Random Forest and Gradient Boosting **tie** (a gap of about 0.001, far smaller than the variation between folds), and the linear models trail by about 0.03. We keep **Random Forest**, the Phase 1 choice: same accuracy, more stable, faster to train.
 """)
 
 md(r"""
@@ -252,7 +248,7 @@ pd.DataFrame(rows).round(2)
 """)
 
 md(r"""
-The June model **over-prices September by about 12%** (median bias), and its September error is clearly worse than its June error. The listing features are unchanged; the market moved. Boston's June peak (graduations, summer tourism) cools by September, and a single-snapshot model has no way to know that.
+The June model **over-prices September by about 12%** (median bias), and its September error is clearly worse than its June error. It still ranks listings sensibly, but it misses the *level*: the market cooled after the June peak. The listing features are unchanged; the market moved. Boston's June peak (graduations, summer tourism) cools by September, and a single-snapshot model has no way to know that.
 """)
 
 code(r"""
@@ -333,15 +329,19 @@ def lasso_effects(rows, cols):
     return pd.Series((np.exp(raw) - 1) * 100, cols)
 
 eff = pd.DataFrame({lab: lasso_effects(P[P["quarter"] == q], BASE) for q, lab in [("2026Q2", "Jun 2026"), ("2026Q3", "Sep 2026")]})
-SHOW = ["private_room", "hotel_room", "monthly", "log_min_nights", "bedrooms", "log_reviews", "reviews_per_month",
-        "log_host_listings", "availability_365", "licensed", "dist_km", "kw_luxury", "kw_view", "kw_parking",
+SHOW = ["private_room", "hotel_room", "log_min_nights", "bedrooms", "log_reviews", "reviews_per_month",
+        "host_size_band", "availability_365", "licensed", "dist_km", "kw_luxury", "kw_view", "kw_parking",
         "nb_Back Bay", "nb_Downtown", "nb_South Boston Waterfront", "nb_Dorchester", "nb_Fenway"]
 weights = eff.loc[SHOW].round(1); weights["change_pts"] = (weights["Sep 2026"] - weights["Jun 2026"]).round(1)
 weights.sort_values("change_pts")
 """)
 
 code(r"""
-final_name = exp[exp["test"] == "Sep 2026"].set_index("experiment")["MAE_$"].idxmin()
+# The calculator prices both quarters, so the final model is the one with the lowest MAE averaged over
+# the June and September test listings (a model that is only good on one quarter does not qualify).
+avg_mae = exp.groupby("experiment")["MAE_$"].mean().loc[list(experiments)]
+print("average test MAE over Jun + Sep:"); print(avg_mae.round(2))
+final_name = avg_mae.idxmin()
 final_model, final_cols = models[final_name]
 te_all = TE
 pi = permutation_importance(final_model, FULL_X.loc[te_all.index, final_cols], te_all["y"], n_repeats=5,
@@ -367,9 +367,10 @@ print(f"Improvement on September: {1 - fin['MAE_$'] / jo['MAE_$']:.0%}")
 """)
 
 md(r"""
-* **A snapshot model goes stale.** Trained on June, the model's September error rises from about $95 to about $101 per night, and it over-prices September by about 12%. It still ranks listings well, but it misses the *level*, because the market cooled after the June peak.
-* **Using every quarter helps most; time and zone add a smaller gain.** Pooling Jun + Sep does most of the work. Time features (quarter, tenure, review recency) and zone features each trim a little more, and weighting the newer quarter 2× gives the best September error, about **17% below the June-only model**. The pooled models also stay accurate on June, which a September-only model does not.
-* **Weights move between quarters.** In the per-quarter Lasso, the premium for a licensed listing falls from about +30% to +8%, and the premiums for Downtown, Fenway and "view" listings grow. The minimum-stay effects (`log_min_nights` and `monthly` should be read together) also shift. A fixed set of weights can't serve all year, which is why the pooled model learns with a time dimension.
+* **A snapshot model goes stale.** Trained on June, the model's error is higher on September than on June, and it over-prices September by about 12%.
+* **Using every quarter helps most; time and zone add a smaller gain.** Pooling Jun + Sep does most of the work. Time features (quarter, tenure, review recency) and zone features each trim a little more, and weighting the newer quarter 2× gives the lowest error **averaged over both quarters**. On September it is about **10% below the June-only model** (exact figures printed above).
+* **Why not a September-only model?** It is marginally better on September alone, by well under a dollar, but it is one of the worst on June. A model that has to price any quarter must be judged on all of them.
+* **Weights move between quarters.** In the per-quarter Lasso, the premium for a licensed listing falls by more than half from June to September, and the premiums for Downtown, Fenway and "view" listings grow. A fixed set of weights can't serve all year, which is why the pooled model learns with a time dimension.
 * **Some bias remains (about +5% on September).** With only two priced quarters, the model has one seasonal contrast to learn from. Priced December and March files would let `q_sep` become a proper season feature.
 * **Recommendation:** use the pooled time + zone Random Forest with recency weighting, and re-fit it every quarter as each new snapshot arrives.
 """)
