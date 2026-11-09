@@ -233,6 +233,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
       <a href="#compare">Comparison</a>
       <a href="#verdict">Verdict</a>
       <a href="#quarterly">Quarterly</a>
+      <a href="#richer">Richer data</a>
     </nav>
   </div>
 </header>
@@ -728,6 +729,74 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
   </div>
 </section>
 
+<!-- ============ PHASE 3 ============ -->
+<div class="phase" id="richer"><span class="label">Phase 3</span><h2>Richer data before deeper models</h2></div>
+
+<section class="block" aria-labelledby="p3a-h" style="border-top:0; padding-top:24px">
+  <div class="sec-head">
+    <span class="step-no">Step 10</span>
+    <h3 id="p3a-h" style="font-size:var(--step-3)">Detailed attributes, then location context</h3>
+    <p>The summary file can't say how big a place is or what it offers. Phase 3 adds the detailed Inside Airbnb exports for June and September. <strong>Step 1</strong> adds guest capacity, bedrooms, beds, bathrooms, property type, 30 amenity groups and review scores. <strong>Step 2</strong> adds distances to 14 demand drivers (airport, convention center, stadium, universities, hospitals), nearby supply, and the median price of the nearest listings from other hosts. Every step is scored on the same host-grouped test set with four models.</p>
+  </div>
+  <div class="grid-2">
+    <div class="panel">
+      <h3>Error at each step</h3>
+      <p class="cap">Test MAE in $/night on <span class="num" id="p3-ntest"></span> listings from hosts no model saw. Lower is better.</p>
+      <div class="legend" id="p3-legend"></div>
+      <svg id="ch-p3" viewBox="0 0 480 300" width="100%" role="img" aria-label="Test error by step and model"></svg>
+    </div>
+    <div class="panel">
+      <h3>Is each step's gain real?</h3>
+      <p class="cap">LightGBM, host-grouped 5-fold cross-validation over all priced rows. The local-market feature is rebuilt inside every fold from training rows only.</p>
+      <div class="table-scroll"><table id="tbl-p3cv"><thead><tr><th>Step</th><th class="num">CV MAE</th><th class="num">Change vs previous</th><th class="num">Folds improved</th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="table-scroll">
+      <table id="tbl-p3"><thead><tr><th>Step</th><th class="num">Features</th><th class="num">Lasso</th><th class="num">Random forest</th><th class="num">LightGBM</th><th class="num">CatBoost</th><th class="num">Best R² (log)</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="panel">
+      <h3>What the best model uses</h3>
+      <p class="cap">Permutation importance of LightGBM on the full feature set, summed by feature family.</p>
+      <svg id="ch-p3fam" viewBox="0 0 440 320" width="100%" role="img" aria-label="Importance by feature family"></svg>
+    </div>
+    <div style="display:grid; gap:28px; min-width:0">
+      <div class="panel">
+        <h3>New listings gain as much</h3>
+        <p class="cap">Test MAE for listings with and without review scores.</p>
+        <div class="table-scroll"><table id="tbl-p3cold"><thead><tr><th>Listings</th><th class="num">Count</th><th class="num">Phase 2 features</th><th class="num">Steps 1-2</th><th class="num">Better by</th></tr></thead><tbody></tbody></table></div>
+      </div>
+      <div class="panel">
+        <h3>Columns kept out</h3>
+        <p class="cap">They contain the price or result from it.</p>
+        <div class="table-scroll"><table id="tbl-p3leak"><thead><tr><th>Column</th><th>Evidence</th><th>Decision</th></tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+  </div>
+  <div class="verdict">
+    <div class="call">
+      <span class="label">Phase 3 result so far</span>
+      <h3 id="p3-headline">Better data beat a better algorithm.</h3>
+      <ol class="reasons">
+        <li><strong>Step 1 is the big win.</strong> Describing what is being rented cuts the test error by 18-27% for every model, and LightGBM improves in every cross-validation fold.</li>
+        <li><strong>Step 2 adds little.</strong> Landmarks give a tiny gain. The neighbours' median price adds nothing, because the model already knows location from the neighbourhood and coordinates.</li>
+        <li><strong>Gradient boosting now leads.</strong> With 100+ informative features, LightGBM pulls ahead of random forest. In Phase 1 the thin feature set left little for boosting to find.</li>
+        <li><strong>Minimum nights is still the strongest single feature</strong>, ahead of guest capacity: it separates nightly stays from discounted monthly rentals.</li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h3>Next</h3>
+      <ul class="plain">
+        <li><strong>Housing-market data:</strong> the Zillow loader is ready, but this environment's network blocks Zillow and the Census API. Add the file to <span class="mono">data/market/</span> and rerun.</li>
+        <li><strong>Calculator:</strong> still uses the Phase 2 model. It needs new inputs (guests, bathrooms, amenities) before it can use the Phase 3 model.</li>
+        <li><strong>Steps 3-5:</strong> calendar seasonality, then review text and photos through pretrained embedding models.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
 <footer>
   <div><strong>Reproduce it.</strong> Run <code>notebooks/boston_airbnb_pricing.ipynb</code> (Phase 1), then <code>notebooks/boston_airbnb_quarterly.ipynb</code> (Phase 2), to train, compare and export the models to <code>interface/data.js</code>. <code>node scripts/verify_js.js</code> checks that the browser calculator matches the Python models.</div>
   <div>Data: Inside Airbnb, Boston quarterly snapshots (Dec 2025 – Sep 2026). Model metrics come from the notebook run and are not hand-entered.</div>
@@ -1069,6 +1138,76 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
       tr.innerHTML = "<td></td><td class='num'>" + fmt$(r.j) + "</td><td class='num'>" + fmt$(r.s) + "</td><td class='num'>" + fmtPct((r.s / r.j - 1) * 100) + "</td>";
       tr.firstChild.textContent = r.name; zb.appendChild(tr);
     });
+  })();
+
+  /* ---------- phase 3: richer data ---------- */
+  (function () {
+    var R = P.phase3; if (!R) return;
+    var MC = { "Lasso": "var(--m-lasso)", "Random Forest": "var(--m-rf)", "LightGBM": "var(--m-gb)", "CatBoost": "var(--m-ols)" };
+    var SHORT = { "0. Phase 2 features": "Phase 2 features", "1. + detailed attributes": "+ detailed attributes", "2. + location context": "+ location context" };
+    $("p3-ntest").textContent = R.n_test.toLocaleString("en-US");
+    var lg = $("p3-legend");
+    R.models.forEach(function (m) { var sp = document.createElement("span"); sp.innerHTML = "<span class='swatch' style='background:" + MC[m] + "'></span>"; sp.appendChild(document.createTextNode(m)); lg.appendChild(sp); });
+    var LD = {}; R.ladder.forEach(function (r) { (LD[r.step] = LD[r.step] || {})[r.model] = r; });
+    var svg = $("ch-p3"), W = 480, H = 300, L = 44, Rr = 20, T = 12, B = 46;
+    var vals = R.ladder.map(function (r) { return r["MAE_$"]; });
+    var lo = Math.floor(Math.min.apply(null, vals) / 10) * 10 - 5, hi = Math.ceil(Math.max.apply(null, vals) / 10) * 10 + 5;
+    var x = function (i) { return L + 30 + i * (W - L - Rr - 60) / (R.steps.length - 1); }, yS = linScale(lo, hi, H - B, T);
+    for (var v = Math.ceil(lo / 10) * 10; v <= hi; v += 10) { el("line", { x1: L, x2: W - Rr, y1: yS(v), y2: yS(v), "class": "grid" }, svg); el("text", { x: L - 6, y: yS(v) + 4, "text-anchor": "end" }, svg, "$" + v); }
+    R.steps.forEach(function (st, i) {
+      var parts = SHORT[st].split(" ");
+      var half = Math.ceil(parts.length / 2);
+      el("text", { x: x(i), y: H - B + 18, "text-anchor": "middle", "class": "ink" }, svg, parts.slice(0, half).join(" "));
+      el("text", { x: x(i), y: H - B + 32, "text-anchor": "middle", "class": "ink" }, svg, parts.slice(half).join(" "));
+    });
+    R.models.forEach(function (m) {
+      var pts = R.steps.map(function (st, i) { return [x(i), yS(LD[st][m]["MAE_$"])]; });
+      el("polyline", { points: pts.map(function (p) { return p.join(","); }).join(" "), fill: "none", stroke: MC[m], "stroke-width": 2.5 }, svg);
+      pts.forEach(function (p) { el("circle", { cx: p[0], cy: p[1], r: 4, fill: MC[m] }, svg); });
+    });
+    var last = R.steps[R.steps.length - 1], bestM = R.best;
+    var bp = [x(R.steps.length - 1), yS(LD[last][bestM]["MAE_$"])];
+    el("text", { x: bp[0] - 8, y: bp[1] + 16, "text-anchor": "end", "class": "ink" }, svg, bestM + " " + fmt$(LD[last][bestM]["MAE_$"]));
+
+    var tb = document.querySelector("#tbl-p3 tbody");
+    R.steps.forEach(function (st) {
+      var row = LD[st], bestModel = R.models.reduce(function (a, b) { return row[a]["MAE_$"] <= row[b]["MAE_$"] ? a : b; });
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td></td><td class='num'>" + R.n_features[st] + "</td>" + R.models.map(function (m) {
+        return "<td class='num'" + (m === bestModel ? " style='font-weight:600'" : "") + ">" + fmt$(row[m]["MAE_$"]) + (m === bestModel ? " ★" : "") + "</td>"; }).join("") +
+        "<td class='num'>" + Math.max.apply(null, R.models.map(function (m) { return row[m].R2_log; })).toFixed(3) + "</td>";
+      tr.firstChild.textContent = SHORT[st]; tb.appendChild(tr);
+    });
+
+    var cvb = document.querySelector("#tbl-p3cv tbody"), PD = {};
+    R.cv_paired.forEach(function (r) { PD[r.step] = r; });
+    R.cv_summary.forEach(function (r) {
+      var d = PD[r.step], tr = document.createElement("tr");
+      tr.innerHTML = "<td></td><td class='num'>" + fmt$(r.MAE_mean) + " ± " + Math.round(r.MAE_std) + "</td><td class='num'>" +
+        (d ? (d["mean_change_$"] < 0 ? "−$" : "+$") + Math.abs(d["mean_change_$"]).toFixed(2) : "–") + "</td><td class='num'>" + (d ? d.folds_improved + " of 5" : "–") + "</td>";
+      tr.firstChild.textContent = r.step.replace(/^\S+\s/, "").replace("+ location context (all)", "+ neighbours' market price");
+      if (d && d["mean_change_$"] < -5) tr.className = "best";
+      cvb.appendChild(tr);
+    });
+
+    var fam = Object.keys(R.family_importance).map(function (k) { return { k: k, v: R.family_importance[k] }; }).filter(function (r) { return r.v > 0.0005; });
+    $("ch-p3fam").setAttribute("viewBox", "0 0 440 " + (fam.length * 30 + 10));
+    hbar($("ch-p3fam"), fam.map(function (r) { return { label: r.k.replace(" (guests, beds, baths)", "").replace(" (neighbourhood, coordinates)", ""), v: r.v, text: r.v.toFixed(3), color: /Size|Amenities|Review|Property|Host and/.test(r.k) ? "var(--m-gb)" : /Landmarks|market/.test(r.k) ? "var(--m-ols)" : "var(--harbor)" }; }), { w: 440, left: 186, right: 50, rowH: 30 });
+
+    var cb = document.querySelector("#tbl-p3cold tbody");
+    R.cold_start.forEach(function (r) {
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td></td><td class='num'>" + r.listings + "</td><td class='num'>" + fmt$(r["MAE Phase 2 features"]) + "</td><td class='num'>" + fmt$(r["MAE Steps 1-2"]) + "</td><td class='num'>" + r["improvement_%"].toFixed(0) + "%</td>";
+      tr.firstChild.textContent = r.group; cb.appendChild(tr);
+    });
+    var lb = document.querySelector("#tbl-p3leak tbody");
+    R.leak_audit.forEach(function (r) {
+      var tr = document.createElement("tr"); tr.innerHTML = "<td class='mono'></td><td></td><td></td>";
+      tr.children[0].textContent = r.column; tr.children[1].textContent = r.evidence; tr.children[2].textContent = r.decision; lb.appendChild(tr);
+    });
+    var s0 = LD[R.steps[0]], sN = LD[last];
+    var b0 = Math.min.apply(null, R.models.map(function (m) { return s0[m]["MAE_$"]; }));
+    $("p3-headline").textContent = "Better data beat a better algorithm: " + Math.round((1 - sN[bestM]["MAE_$"] / b0) * 100) + "% less error.";
   })();
 
   /* ---------- map ---------- */

@@ -7,22 +7,27 @@ Predictive-analytics project that recommends a nightly price for a Boston Airbnb
 | `data/` | Inside Airbnb Boston Sep 2026 snapshot: `listings.csv`, `neighbourhoods.csv`, `neighbourhoods.geojson` |
 | `data/quarterly/` | Four quarterly snapshots (Dec 2025, Mar 2026, Jun 2026, Sep 2026). Only Jun and Sep include prices |
 | `notebooks/boston_airbnb_pricing.ipynb` | Data selection, cleaning, EDA, feature engineering, five models (baseline, linear regression, Lasso, random forest, gradient boosting), comparison, verdict, export |
+| `notebooks/boston_airbnb_phase3_enriched.ipynb` | Phase 3 Steps 1-2: detailed attributes (size, bathrooms, property type, amenities, review scores) and location context, with Lasso, random forest, LightGBM and CatBoost |
 | `notebooks/boston_airbnb_quarterly.ipynb` | Phase 2: re-select the model on June, apply it to the year, pool quarters with time + zone features, compare per-quarter weights |
 | `interface/index.html` | Portfolio page with a working price calculator (open it in a browser; no server needed) |
 | `interface/pricing.js` | JavaScript port of the feature builder and the five models |
 | `interface/data.js` | Metrics, chart data and map exported by the notebooks (small, loads first) |
 | `interface/models.js` | Trained models exported by the notebooks (loaded in the background) |
 | `scripts/build_notebook.py`, `scripts/build_quarterly_notebook.py` | Sources of the notebook cells |
+| `data/detailed/` | Detailed Inside Airbnb exports (Mar, Jun, Sep 2026; 90 columns) |
+| `src/enriched_features.py` | Phase 3 features: detailed attributes, amenity groups, landmarks, supply, local market price, optional Zillow loader |
 | `src/pricing_features.py` | Shared data pre-check, cleaning rules and feature builder used by both notebooks |
 | `scripts/verify_js.js`, `scripts/feature_parity.py` | Check that the browser builds the same features and predictions as Python |
 
 ## Reproduce
 
 ```bash
-pip install scikit-learn pandas numpy matplotlib nbformat nbconvert ipykernel
+pip install scikit-learn pandas numpy matplotlib nbformat nbconvert ipykernel lightgbm catboost
 python scripts/build_notebook.py
 python scripts/build_quarterly_notebook.py
 cd notebooks && jupyter nbconvert --to notebook --execute --inplace boston_airbnb_pricing.ipynb && jupyter nbconvert --to notebook --execute --inplace boston_airbnb_quarterly.ipynb && cd ..
+python scripts/build_enriched_notebook.py
+cd notebooks && jupyter nbconvert --to notebook --execute --inplace boston_airbnb_phase3_enriched.ipynb && cd ..
 python scripts/feature_parity.py
 node scripts/verify_js.js
 ```
@@ -57,3 +62,13 @@ Key finding: the host's listing count acted as a host fingerprint, and a random 
 | Trained on September only | 124 | 114 | +3.7% |
 | Pooled Jun + Sep | 118 | 117 | +7.6% |
 | **Pooled + time + zone, Sep weighted 2×** (lowest average) | 117 | 114 | +4.8% |
+
+## Phase 3, Steps 1-2 result (Jun + Sep detailed files, 1,329 test listings from unseen hosts)
+
+| Step | Lasso | Random forest | LightGBM | CatBoost | Best R² (log) |
+|---|---|---|---|---|---|
+| Phase 2 features | $141 | $135 | $136 | $135 | 0.588 |
+| + Step 1 detailed attributes | $115 | $110 | **$99** | $101 | 0.760 |
+| + Step 2 location context | $116 | $109 | **$98** | $103 | 0.762 |
+
+Host-grouped 5-fold CV (LightGBM): Step 1 lowers error by $25.47/night (5 of 5 folds); landmarks and supply by $0.31 (4 of 5); the neighbours' market price makes it $0.48 worse (2 of 5). Housing-market data (Zillow) is not included: this environment's network blocks it. Put `Neighborhood_zhvi.csv` in `data/market/` and rerun.
