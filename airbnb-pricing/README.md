@@ -8,12 +8,15 @@ Predictive-analytics project that recommends a nightly price for a Boston Airbnb
 | `data/quarterly/` | Four quarterly snapshots (Dec 2025, Mar 2026, Jun 2026, Sep 2026). Only Jun and Sep include prices |
 | `notebooks/boston_airbnb_pricing.ipynb` | Data selection, cleaning, EDA, feature engineering, five models (baseline, linear regression, Lasso, random forest, gradient boosting), comparison, verdict, export |
 | `notebooks/boston_airbnb_phase3_enriched.ipynb` | Phase 3 Steps 1-2: detailed attributes (size, bathrooms, property type, amenities, review scores) and location context, with Lasso, random forest, LightGBM and CatBoost |
+| `notebooks/boston_airbnb_phase3_text_market.ipynb` | Phase 3 Steps 2b-5: Zillow home values, review and description text (TF-IDF, aspect lexicon), pretrained text/photo embeddings when available |
 | `notebooks/boston_airbnb_quarterly.ipynb` | Phase 2: re-select the model on June, apply it to the year, pool quarters with time + zone features, compare per-quarter weights |
 | `interface/index.html` | Portfolio page with a working price calculator (open it in a browser; no server needed) |
 | `interface/pricing.js` | JavaScript port of the feature builder and the five models |
 | `interface/data.js` | Metrics, chart data and map exported by the notebooks (small, loads first) |
 | `interface/models.js` | Trained models exported by the notebooks (loaded in the background) |
 | `scripts/build_notebook.py`, `scripts/build_quarterly_notebook.py` | Sources of the notebook cells |
+| `data/market/` | Zillow neighbourhood home values (ZHVI) and ZIP rents (ZORI), Boston rows |
+| `data/raw/` | Not committed. Reviews, calendars and photos from `scripts/download_data.py` and `scripts/download_photos.py` |
 | `data/detailed/` | Detailed Inside Airbnb exports (Mar, Jun, Sep 2026; 90 columns) |
 | `src/enriched_features.py` | Phase 3 features: detailed attributes, amenity groups, landmarks, supply, local market price, optional Zillow loader |
 | `src/pricing_features.py` | Shared data pre-check, cleaning rules and feature builder used by both notebooks |
@@ -72,3 +75,16 @@ Key finding: the host's listing count acted as a host fingerprint, and a random 
 | + Step 2 location context | $116 | $109 | **$98** | $103 | 0.762 |
 
 Host-grouped 5-fold CV (LightGBM): Step 1 lowers error by $25.47/night (5 of 5 folds); landmarks and supply by $0.31 (4 of 5); the neighbours' market price makes it $0.48 worse (2 of 5). Housing-market data (Zillow) is not included: this environment's network blocks it. Put `Neighborhood_zhvi.csv` in `data/market/` and rerun.
+
+## Phase 3, Steps 2b-5 result (LightGBM, host-grouped 5-fold CV)
+
+| Rung | CV MAE ($/night) | Change | Folds improved |
+|---|---|---|---|
+| Steps 1-2 base (133 features) | 86.81 | | |
+| + Zillow home values | 87.02 | +0.21 | 3 of 5 |
+| + description text (TF-IDF) | 86.21 | -0.81 | 4 of 5 |
+| + review aspects | 86.15 | -0.06 | 2 of 5 |
+| + review text (TF-IDF) | 85.25 | -0.90 | 3 of 5 |
+
+- Seasonality (Step 3) is not possible: Inside Airbnb calendar files no longer contain prices.
+- Pretrained embeddings (bge-small for text, CLIP for photos) are coded and photos are downloaded, but model weights come from `us.aws.cdn.hf.co` (and `cas-server.xethub.hf.co` / `cas-bridge.xethub.hf.co`), which the network policy blocks.

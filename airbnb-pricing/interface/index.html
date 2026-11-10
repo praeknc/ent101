@@ -797,6 +797,33 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
   </div>
 </section>
 
+<section class="block" aria-labelledby="p3b-h">
+  <div class="sec-head">
+    <span class="step-no">Step 11</span>
+    <h3 id="p3b-h" style="font-size:var(--step-3)">Market data, review text and photos</h3>
+    <p>Each rung adds one data source to the Steps 1-2 model and is judged by host-grouped 5-fold cross-validation with LightGBM. Text features are fitted inside each fold. Reviews are limited to the 30 most recent before each snapshot, and words about price are removed: guests' comments on value are a reaction to the price.</p>
+  </div>
+  <div class="panel">
+    <div class="table-scroll"><table id="tbl-p3b"><thead><tr><th>Rung</th><th class="num">Features</th><th class="num">CV MAE</th><th class="num">Change</th><th class="num">Folds improved</th></tr></thead><tbody></tbody></table></div>
+  </div>
+  <div class="grid-2">
+    <div class="panel">
+      <h3>What review wording says about price</h3>
+      <p class="cap">Spearman correlation between log price and the share of a listing's reviews mentioning each aspect.</p>
+      <svg id="ch-asp" viewBox="0 0 440 360" width="100%" role="img" aria-label="Review aspects vs price"></svg>
+    </div>
+    <div class="panel">
+      <h3>Not possible yet</h3>
+      <ul class="plain">
+        <li><strong>Seasonality:</strong> Inside Airbnb's calendar files no longer contain nightly prices (empty in December, removed from March on). Only availability remains, which reflects bookings, a result of the price.</li>
+        <li><strong>Pretrained text and photo models</strong> (<span class="mono">bge-small</span>, <span class="mono">CLIP ViT-B/32</span>): the code is ready and <span class="num" id="p3b-photos"></span> of cover photos are downloaded, but the network blocks Hugging Face's model file CDN.</li>
+        <li><strong>Zillow rent index:</strong> published by ZIP code, and the listings have no ZIP.</li>
+      </ul>
+      <p class="out-note" style="margin-top:10px">Zillow home values add nothing within Boston because the model already knows the neighbourhood. Their value is for comparing cities.</p>
+    </div>
+  </div>
+</section>
+
 <footer>
   <div><strong>Reproduce it.</strong> Run <code>notebooks/boston_airbnb_pricing.ipynb</code> (Phase 1), then <code>notebooks/boston_airbnb_quarterly.ipynb</code> (Phase 2), to train, compare and export the models to <code>interface/data.js</code>. <code>node scripts/verify_js.js</code> checks that the browser calculator matches the Python models.</div>
   <div>Data: Inside Airbnb, Boston quarterly snapshots (Dec 2025 – Sep 2026). Model metrics come from the notebook run and are not hand-entered.</div>
@@ -1208,6 +1235,34 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
     var s0 = LD[R.steps[0]], sN = LD[last];
     var b0 = Math.min.apply(null, R.models.map(function (m) { return s0[m]["MAE_$"]; }));
     $("p3-headline").textContent = "Better data beat a better algorithm: " + Math.round((1 - sN[bestM]["MAE_$"] / b0) * 100) + "% less error.";
+  })();
+
+  /* ---------- phase 3b: market, text, photos ---------- */
+  (function () {
+    var R = P.phase3b; if (!R) return;
+    var tb = document.querySelector("#tbl-p3b tbody");
+    R.ladder.forEach(function (r, i) {
+      var ch = r["change vs previous"], tr = document.createElement("tr");
+      tr.innerHTML = "<td></td><td class='num'>" + r.features + "</td><td class='num'>$" + r["CV MAE ($/night)"].toFixed(2) + "</td><td class='num'>" +
+        (ch == null ? "–" : (ch < 0 ? "−$" : "+$") + Math.abs(ch).toFixed(2)) + "</td><td class='num'>" + (r["folds improved"] == null ? "–" : r["folds improved"] + " of 5") + "</td>";
+      tr.firstChild.textContent = r.rung.replace(/^\+ /, "+ ");
+      if (i === R.ladder.length - 1) tr.className = "best";
+      tb.appendChild(tr);
+    });
+    var NAMES = { asp_clean: "clean", asp_dirty: "dirty / smell", asp_noise: "noise", asp_quiet: "quiet", asp_spacious: "spacious",
+      asp_small: "small", asp_location: "location", asp_transit: "transit (the T)", asp_view: "view", asp_luxury: "luxury / modern", asp_host: "host", asp_problem: "problems" };
+    var rows = Object.keys(R.aspect_corr).map(function (k) { return { k: k, v: R.aspect_corr[k] }; }).sort(function (a, b) { return b.v - a.v; });
+    var svg = $("ch-asp"), W = 440, L = 130, Rr = 50, rowH = 26, T = 4;
+    svg.setAttribute("viewBox", "0 0 " + W + " " + (T + rows.length * rowH + 20));
+    var mx = Math.max.apply(null, rows.map(function (r) { return Math.abs(r.v); })), x = linScale(-mx, mx, L, W - Rr);
+    el("line", { x1: x(0), x2: x(0), y1: T, y2: T + rows.length * rowH, stroke: "var(--ink)", "stroke-width": 1 }, svg);
+    rows.forEach(function (r, i) {
+      var y = T + i * rowH, x0 = x(Math.min(0, r.v)), x1 = x(Math.max(0, r.v));
+      el("text", { x: L - 8, y: y + rowH / 2 + 4, "text-anchor": "end", "class": "ink" }, svg, NAMES[r.k] || r.k);
+      el("rect", { x: x0, y: y + 6, width: Math.max(1, x1 - x0), height: rowH - 12, rx: 2, fill: r.v >= 0 ? "var(--good)" : "var(--brick)" }, svg);
+      el("text", { x: r.v >= 0 ? x1 + 5 : x0 - 5, y: y + rowH / 2 + 4, "text-anchor": r.v >= 0 ? "start" : "end" }, svg, (r.v >= 0 ? "+" : "") + r.v.toFixed(2));
+    });
+    $("p3b-photos").textContent = Math.round(R.photo_coverage * 100) + "%";
   })();
 
   /* ---------- map ---------- */

@@ -213,3 +213,96 @@ def load_zillow_neighbourhood(path, months):
     z = z[(z["City"] == "Boston") & (z["State"] == "MA")]
     keep = [c for c in z.columns if c[:7] in months]
     return z.set_index("RegionName")[keep]
+
+
+# ---------------------------------------------------------------- shared time / zone block (Phase 2 features)
+
+def time_zone_features(A, quarterly_dir, zone_centers):
+    """Quarter flag, tenure across the four summary snapshots, review recency, rings and zones."""
+    seen = {}
+    files = [("2025Q4", "listings_2025Q4_dec.csv"), ("2026Q1", "listings_2026Q1_mar.csv"),
+             ("2026Q2", "listings_2026Q2_jun.csv"), ("2026Q3", "listings_2026Q3_sep.csv")]
+    for i, (_, f) in enumerate(files):
+        for lid in pd.read_csv(Path(quarterly_dir) / f, usecols=["id"])["id"]:
+            seen.setdefault(lid, set()).add(i)
+    q_idx = A["quarter"].map({"2026Q2": 2, "2026Q3": 3})
+    T = pd.DataFrame(index=A.index)
+    T["q_sep"] = (A["quarter"] == "2026Q3").astype(int)
+    T["tenure_q"] = [sum(j < q for j in seen.get(i, set())) for i, q in zip(A["id"], q_idx)]
+    T["days_since_review"] = (pd.to_datetime(A["last_scraped"]) - pd.to_datetime(A["last_review"])).dt.days.clip(0, 1095).fillna(1095)
+    centers = np.asarray(zone_centers)
+    P = km_coords(A["latitude"], A["longitude"])
+    zone = np.argmin(((P[:, None, :] - centers[None]) ** 2).sum(-1), axis=1)
+    dist = np.sqrt((P ** 2).sum(1))
+    T["ring_core"], T["ring_inner"], T["ring_outer"] = (dist < 2).astype(int), ((dist >= 2) & (dist <= 5)).astype(int), (dist > 5).astype(int)
+    for z in range(len(centers)):
+        T[f"zone_{z}"] = (zone == z).astype(int)
+    return T
+
+
+# ---------------------------------------------------------------- Step 2b: housing market (Zillow ZHVI)
+
+# Inside Airbnb neighbourhood -> Zillow neighbourhood(s); several are averaged where Zillow splits an area.
+ZILLOW_MAP = {
+    "Dorchester": ["North Dorchester", "South Dorchester"],
+    "Longwood Medical Area": ["Fenway", "Mission Hill"],
+    "South Boston Waterfront": ["South Boston"],
+    "Downtown": ["Downtown", "Downtown Crossing"],
+}
+# Snapshot -> last month-end published BEFORE the scrape (no look-ahead)
+ZHVI_MONTH = {"2026Q2": ("2026-05-31", "2025-05-31"), "2026Q3": ("2026-08-31", "2025-08-31")}
+
+
+def zhvi_features(A, zhvi):
+    """log home value of the listing's neighbourhood at the month before the snapshot, and its 12-month change."""
+    z = zhvi.set_index("RegionName")
+    X = pd.DataFrame(index=A.index, columns=["zhvi_log", "zhvi_yoy_pct"], dtype=float)
+    for q, (now, year_ago) in ZHVI_MONTH.items():
+        m = A["quarter"] == q
+        for hood in A.loc[m, "neighbourhood"].unique():
+            names = [n for n in ZILLOW_MAP.get(hood, [hood]) if n in z.index]
+            if not names:
+                continue
+            v_now, v_ago = z.loc[names, now].mean(), z.loc[names, year_ago].mean()
+            idx = A.index[m & (A["neighbourhood"] == hood)]
+            X.loc[idx, "zhvi_log"] = np.log(v_now)
+            X.loc[idx, "zhvi_yoy_pct"] = (v_now / v_ago - 1) * 100
+    return X
+
+
+# ---------------------------------------------------------------- Step 4: review and description text
+
+# Words about price are removed from the text features: guests' comments on value are a REACTION to
+# the price (reverse causality), so letting the model read them would leak the target.
+PRICE_WORDS = ["price", "priced", "pricey", "prices", "pricing", "expensive", "cheap", "cheaper", "affordable",
+               "value", "worth", "money", "cost", "costs", "costly", "overpriced", "budget", "deal", "bargain",
+               "dollar", "dollars", "fee", "fees", "reasonable", "reasonably", "inexpensive"]
+
+# Interpretable aspect lexicon: share of a listing's reviews that mention each aspect.
+ASPECTS = {
+    "asp_clean":      r"\bclean\b|spotless|immaculate|tidy",
+    "asp_dirty":      r"\bdirty\b|stain|smell|smelly|dust|hair\b|bugs?\b|roach|mold",
+    "asp_noise":      r"\bnois|loud|thin walls|traffic|construction",
+    "asp_quiet":      r"\bquiet\b|peaceful|calm",
+    "asp_spacious":   r"spacious|roomy|plenty of space|huge|large",
+    "asp_small":      r"\bsmall\b|tiny|cramped|tight",
+    "asp_location":   r"location|located|walking distance|walkable|close to",
+    "asp_transit":    r"\bthe t\b|subway|train|station|\bmbta\b|green line|red line|orange line|blue line",
+    "asp_view":       r"\bview|skyline|waterfront",
+    "asp_luxury":     r"luxur|beautiful|stunning|gorgeous|modern|stylish|elegant",
+    "asp_host":       r"responsive|communicat|helpful|welcoming|hospitab",
+    "asp_problem":    r"\bbroken|didn.t work|not working|issue|problem|disappoint|uncomfortable",
+}
+
+
+def review_text_by_listing(reviews, snapshot_date, n_recent=30):
+    """Concatenate each listing's n most recent reviews posted before the snapshot date."""
+    r = reviews[pd.to_datetime(reviews["date"]) < pd.Timestamp(snapshot_date)].copy()
+    r["comments"] = r["comments"].fillna("").astype(str).str.replace(r"<br\s*/?>", " ", regex=True)
+    r = r.sort_values("date").groupby("listing_id").tail(n_recent)
+    g = r.groupby("listing_id")["comments"]
+    text = g.apply(lambda s: " ".join(s))
+    aspects = pd.DataFrame({k: g.apply(lambda s, p=p: s.str.lower().str.contains(p, regex=True).mean()) for k, p in ASPECTS.items()})
+    aspects["n_reviews_text"] = g.size()
+    aspects["review_len_mean"] = g.apply(lambda s: s.str.len().mean())
+    return text, aspects
