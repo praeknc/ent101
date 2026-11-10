@@ -173,8 +173,8 @@ y, groups = np.log(A["price"].values), A["host_id"].values
 EX = tf.extra_features(A)
 TEAM_X, _ = tf.team_features(A)   # only the area and amenity columns are used below; they have no missing values
 qci = pd.to_datetime(A["price_quote_checkin_date"])
-QUOTE = pd.DataFrame({"quote_lead_days": (qci - pd.to_datetime(A["last_scraped"])).dt.days.astype(float),
-                      "quote_weekend": qci.dt.dayofweek.isin([4, 5]).astype(float).where(qci.notna())}, index=A.index)
+LEAD = pd.DataFrame({"quote_lead_days": (qci - pd.to_datetime(A["last_scraped"])).dt.days.astype(float)}, index=A.index)
+WEEKDAY = pd.get_dummies(qci.dt.dayofweek, prefix="quote_dow").astype(float).set_index(A.index)
 IDEAS = {
     "host experience (months)": EX[["host_experience_months"]],
     "months since first review": EX[["months_since_first_review"]],
@@ -182,8 +182,13 @@ IDEAS = {
     "6 neighbourhood areas": TEAM_X[[c for c in TEAM_X.columns if c.startswith("nbhd_")]],
     "10 broad amenity flags": TEAM_X[list(tf.AMENITY_ROOTS)].add_prefix("team_"),
     "log host listing count (raw)": EX[["log_host_listings_count"]],
-    "quote check-in day and lead time (our extension)": QUOTE,
+    "quote night: day of week (our extension)": WEEKDAY,
+    "quote night: days ahead (our extension)": LEAD,
 }
+# Leakage screen for the new ideas, same rule as Phase 3: nothing that measures bookings may be an input.
+lead_vs_avail = LEAD["quote_lead_days"].corr(A["availability_30"], method="spearman")
+print(f"days until the quoted night vs 30-day availability: Spearman {lead_vs_avail:.2f} -> it measures how booked-up the listing is")
+LEAKY_IDEAS = {"quote night: days ahead (our extension)": f"measures bookings (Spearman {lead_vs_avail:.2f} with 30-day availability)"}
 print({k: v.shape[1] for k, v in IDEAS.items()}, "| coverage:", EX.notna().mean().round(3).to_dict())
 """)
 
@@ -204,12 +209,40 @@ ideas.sort_values("change $").round(2)
 """)
 
 code(r"""
-KEEP = ideas[(ideas["change $"] < 0) & (ideas["folds improved"] >= 4)].index.tolist()
-print("kept (lower error in at least 4 of 5 folds):", KEEP)
+KEEP = [i for i in ideas[(ideas["change $"] < 0) & (ideas["folds improved"] >= 4)].index if i not in LEAKY_IDEAS]
+print("kept (lower error in at least 4 of 5 folds, and not a booking measure):", KEEP)
+print("excluded despite lower error:", LEAKY_IDEAS)
 MERGED = pd.concat([BASE] + [IDEAS[k] for k in KEEP], axis=1)
 merged_err = cv_mae(MERGED)
 print(f"merged CV MAE: ${merged_err.mean():.2f} (base ${base_err.mean():.2f}; change {merged_err.mean() - base_err.mean():+.2f}, "
       f"{int((merged_err < base_err).sum())} of 5 folds better)")
+""")
+
+md(r"""
+**Reading.** The quote's *day of week* is legitimate: Inside Airbnb quotes one specific night, and a Friday or Saturday night is priced differently from a Tuesday, so it describes the target. The *number of days until* that night is not legitimate: the quote is for the first available night, so a long wait means the listing is booked up, which is a result of its price. It lowers the error the most, which is exactly why it has to be excluded.
+
+### Head-to-head on their exact rows
+
+To separate *features* from *model* and *data scope*, both feature sets are compared on the same 3,002 September listings with reviews, under the same host-grouped 5-fold CV.
+""")
+
+code(r"""
+sep_ids = set(clean["id"])
+S = (A["quarter"] == "2026Q3").values & A["id"].isin(sep_ids).values
+S_idx = np.where(S)[0]
+team_rows = clean.set_index("id").loc[A.loc[S, "id"]]
+ys, gs = y[S_idx], groups[S_idx]
+folds_s = list(GroupKFold(5).split(S_idx, ys, gs))
+def cv_on(X, make):
+    return np.mean([mean_absolute_error(np.exp(ys[b]), np.exp(make().fit(X.iloc[a], ys[a]).predict(X.iloc[b]))) for a, b in folds_s])
+h2h = pd.DataFrame([
+    ("their 48 features", "their gradient boosting", cv_on(team_rows[FEATS].reset_index(drop=True), lambda: team_model("Gradient boosting (CV)")[0])),
+    ("their 48 features", "LightGBM", cv_on(team_rows[FEATS].reset_index(drop=True), lambda: lgb.LGBMRegressor(**LGB))),
+    ("our merged features", "their gradient boosting", cv_on(MERGED.iloc[S_idx].fillna(-1).reset_index(drop=True), lambda: team_model("Gradient boosting (CV)")[0])),
+    ("our merged features", "LightGBM", cv_on(MERGED.iloc[S_idx].reset_index(drop=True), lambda: lgb.LGBMRegressor(**LGB))),
+], columns=["features", "model", "host-grouped CV MAE ($)"])
+print(f"{S.sum()} matching listings")
+h2h.round(2)
 """)
 
 md(r"""
@@ -285,6 +318,8 @@ summary = pd.DataFrame([
     ("Teammate", "6 neighbourhood areas", "Tested", f"{ideas.loc['6 neighbourhood areas', 'change $']:+.2f}, {ideas.loc['6 neighbourhood areas', 'folds improved']}/5"),
     ("Teammate", "10 broad amenity flags", "Tested", f"{ideas.loc['10 broad amenity flags', 'change $']:+.2f}, {ideas.loc['10 broad amenity flags', 'folds improved']}/5"),
     ("Teammate", "log host listing count", "Tested", f"{ideas.loc['log host listing count (raw)', 'change $']:+.2f}, {ideas.loc['log host listing count (raw)', 'folds improved']}/5 (host-identity risk)"),
+    ("Extension", "Day of week of the quoted night", "Tested", f"{ideas.loc['quote night: day of week (our extension)', 'change $']:+.2f}, {ideas.loc['quote night: day of week (our extension)', 'folds improved']}/5"),
+    ("Extension", "Days until the quoted night", "Excluded", f"{ideas.loc['quote night: days ahead (our extension)', 'change $']:+.2f} but " + LEAKY_IDEAS["quote night: days ahead (our extension)"]),
     ("Teammate", "Neural network (MLP)", "Compared", f"out-of-sample MAE ${final_cmp.loc['Neural network (MLP)', 'out MAE_$']:.0f} vs best ${final_cmp['out MAE_$'].min():.0f} ({best_name})"),
     ("Teammate", "In-sample vs out-of-sample reporting", "Adopted", "overfit gap now shown for every model"),
     ("Ours", "Host-grouped split", "Applied to their models", f"random split overstated R² by {gap['R² drop'].mean():.2f} on average"),
@@ -293,7 +328,7 @@ summary = pd.DataFrame([
 ], columns=["from", "element", "status", "evidence"])
 summary["status"] = [("Kept" if e in KEEP else "Not kept") if s == "Tested" else s for s, e in zip(summary["status"], [
     "host experience (months)", "months since first review", "stay length of the price quote", "6 neighbourhood areas",
-    "10 broad amenity flags", "log host listing count (raw)", "", "", "", "", ""])]
+    "10 broad amenity flags", "log host listing count (raw)", "quote night: day of week (our extension)", "", "", "", "", "", ""])]
 summary
 """)
 
@@ -304,8 +339,11 @@ The tables above give the exact figures; the main points are:
 
 * **Their feature engineering and ours agree on what matters:** size, bathrooms, room and property type, review scores and minimum nights. Their 48-feature set is compact and readable, and close to ours in accuracy on the same rows.
 * **Their evaluation was optimistic.** A random split lets the same host appear in training and test; under host-grouped evaluation every one of their models loses R². Their data filter also drops new listings, which a pricing tool must handle.
-* **Several of their features are genuinely new to us,** and the ones that lower error consistently are merged into our pipeline (the "kept" rows). Features that duplicate what we already have, like broad amenity flags or neighbourhood areas, add nothing to a tree model that already sees the detailed version.
-* **The neural network is competitive but doesn't win alone** on ~5,600 training rows of tabular data. Averaged with the boosting models it can help, which is the ensemble row.
+* **Two ideas from their pipeline improve ours:** *months since the first review* (how long a listing has been active), and, building on their *stay length* column, the **day of the week of the quoted night**. Both lower the error in at least 4 of 5 folds and are merged.
+* **One idea lowers the error even more but is excluded:** the number of days until the quoted night measures how booked-up a listing is, a result of its price.
+* **The rest add nothing to our pipeline:** host experience, stay length, neighbourhood areas, broad amenity flags and the raw host listing count. They duplicate what we already have, or (the listing count) risk identifying the host.
+* **On the same rows, the head-to-head table shows how much comes from features and how much from the model.**
+* **The neural network alone trails the boosting models** on ~5,600 training rows of tabular data, landing near random forest. Averaging it with LightGBM and CatBoost changes the error by about a dollar a night on this split, which is within single-split noise, so the simpler LightGBM stays the pricing model.
 * **Their in-sample vs out-of-sample reporting is a good practice** that we now adopt: it shows that random forest and CART overfit far more than boosting or the linear models.
 """)
 
@@ -319,7 +357,7 @@ bundle["team_merge"] = {
     "base_cv_mae": float(base_err.mean()), "merged_cv_mae": float(merged_err.mean()),
     "merged_folds_better": int((merged_err < base_err).sum()), "kept": KEEP,
     "models": final_cmp.reset_index().round(4).replace({np.nan: None}).to_dict(orient="records"),
-    "best_model": best_name, "mlp_params": {k: list(v) if isinstance(v, tuple) else v for k, v in MLP_P.items()},
+    "best_model": best_name, "leaky_ideas": LEAKY_IDEAS, "h2h": h2h.round(3).to_dict(orient="records"), "mlp_params": {k: list(v) if isinstance(v, tuple) else v for k, v in MLP_P.items()},
     "summary": summary.to_dict(orient="records"),
     "n_team_rows": int(len(clean)), "n_rows": int(len(A)), "n_test": int(len(te)),
 }

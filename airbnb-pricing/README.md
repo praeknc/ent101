@@ -9,6 +9,8 @@ Predictive-analytics project that recommends a nightly price for a Boston Airbnb
 | `notebooks/boston_airbnb_pricing.ipynb` | Data selection, cleaning, EDA, feature engineering, five models (baseline, linear regression, Lasso, random forest, gradient boosting), comparison, verdict, export |
 | `notebooks/boston_airbnb_phase3_enriched.ipynb` | Phase 3 Steps 1-2: detailed attributes (size, bathrooms, property type, amenities, review scores) and location context, with Lasso, random forest, LightGBM and CatBoost |
 | `notebooks/boston_airbnb_phase3_text_market.ipynb` | Phase 3 Steps 2b-5: Zillow home values, review and description text (TF-IDF, aspect lexicon), pretrained text/photo embeddings when available |
+| `notebooks/boston_airbnb_team_merge.ipynb` | Compares the teammate's pipeline with ours, tests each of their ideas under host-grouped CV, and merges the ones that help |
+| `teammate/` | Teammate's `train_models.py` (unchanged), their variable-screening workbook, a re-creation of their cleaning step, and their results |
 | `notebooks/boston_airbnb_quarterly.ipynb` | Phase 2: re-select the model on June, apply it to the year, pool quarters with time + zone features, compare per-quarter weights |
 | `interface/index.html` | Portfolio page with a working price calculator (open it in a browser; no server needed) |
 | `interface/pricing.js` | JavaScript port of the feature builder and the five models |
@@ -88,3 +90,12 @@ Host-grouped 5-fold CV (LightGBM): Step 1 lowers error by $25.47/night (5 of 5 f
 
 - Seasonality (Step 3) is not possible: Inside Airbnb calendar files no longer contain prices.
 - Pretrained embeddings (bge-small for text, CLIP for photos) are coded and photos are downloaded, but model weights come from `us.aws.cdn.hf.co` (and `cas-server.xethub.hf.co` / `cas-bridge.xethub.hf.co`), which the network policy blocks.
+
+## Team merge (teammate pipeline vs ours)
+
+- Teammate's script, run unchanged: best out-of-sample R² 0.835 (gradient boosting) on a random split of 3,002 September listings with reviews.
+- Under a host-grouped split the same models lose 0.07 R² on average (gradient boosting 0.838 → 0.747 in 5-fold CV).
+- Same 2,995 listings, host-grouped CV: their 48 features $83.66, our merged features **$74.10**; the model choice changes the error by under $1.
+- Kept from their pipeline: months since first review (−$0.62, 4/5 folds) and, built on their stay-length column, the quoted night's day of week (−$1.65, 5/5). Merged CV MAE $84.74 vs $86.81.
+- Excluded: days until the quoted night (−$3.68) because it measures bookings (Spearman −0.68 with 30-day availability).
+- Neural network (MLP): out-of-sample MAE $110 vs LightGBM $96; an LightGBM + CatBoost + MLP average is within $1 of LightGBM alone.

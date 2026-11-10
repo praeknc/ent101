@@ -234,6 +234,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
       <a href="#verdict">Verdict</a>
       <a href="#quarterly">Quarterly</a>
       <a href="#richer">Richer data</a>
+      <a href="#team">Team merge</a>
     </nav>
   </div>
 </header>
@@ -824,6 +825,61 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
   </div>
 </section>
 
+<!-- ============ TEAM MERGE ============ -->
+<div class="phase" id="team"><span class="label">Team review</span><h2>Two pipelines, one model</h2></div>
+
+<section class="block" aria-labelledby="tm-h" style="border-top:0; padding-top:24px">
+  <div class="sec-head">
+    <span class="step-no">Step 12</span>
+    <h3 id="tm-h" style="font-size:var(--step-3)">What a teammate's pipeline adds</h3>
+    <p>A teammate built a separate pipeline: 48 features from the September detailed file (listings with reviews only), six models including a neural network, a random train/test split, and both in-sample and out-of-sample reporting. Their script was run unchanged, then tested under our host-grouped evaluation, and each of their ideas was added to our model one at a time.</p>
+  </div>
+  <div class="grid-2">
+    <div class="panel">
+      <h3>Their models, honestly tested</h3>
+      <p class="cap">R² on log price, 5-fold CV on their <span class="num" id="tm-rows"></span> listings. A random split lets the same host appear in training and test.</p>
+      <div class="legend"><span><span class="swatch" style="background:var(--muted)"></span>Random split (theirs)</span><span><span class="swatch" style="background:var(--harbor)"></span>Split by host</span></div>
+      <svg id="ch-tm-stress" viewBox="0 0 480 320" width="100%" role="img" aria-label="Teammate models under random vs host-grouped split"></svg>
+    </div>
+    <div class="panel">
+      <h3>Same rows, features vs model</h3>
+      <p class="cap">Host-grouped CV error on the same September listings with reviews.</p>
+      <div class="table-scroll"><table id="tbl-h2h"><thead><tr><th>Features</th><th>Model</th><th class="num">CV MAE</th></tr></thead><tbody></tbody></table></div>
+      <p class="out-note" id="h2h-note" style="margin-top:8px"></p>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>Each idea added to our model</h3>
+    <p class="cap">LightGBM, host-grouped 5-fold CV on June + September, base error <span class="num" id="tm-base"></span>. An idea is kept if it lowers the error in at least 4 of 5 folds and does not measure bookings.</p>
+    <div class="table-scroll"><table id="tbl-ideas"><thead><tr><th>Element</th><th>From</th><th>Status</th><th>Evidence</th></tr></thead><tbody></tbody></table></div>
+    <p class="out-note" id="tm-merged" style="margin-top:8px"></p>
+  </div>
+  <div class="panel">
+    <h3>Every model type on the merged features</h3>
+    <p class="cap">Host-grouped 80/20 split. In-sample vs out-of-sample shows overfitting: a big gap means the model memorises training listings.</p>
+    <div class="table-scroll"><table id="tbl-tm-models"><thead><tr><th>Model</th><th class="num">In-sample R²</th><th class="num">Out-of-sample R²</th><th class="num">Gap</th><th class="num">Out-of-sample MAE</th></tr></thead><tbody></tbody></table></div>
+  </div>
+  <div class="verdict">
+    <div class="call">
+      <span class="label">Result</span>
+      <h3>Their features sharpened ours; our evaluation corrected theirs.</h3>
+      <ol class="reasons">
+        <li><strong>Two ideas improve our model:</strong> months since the first review, and the day of the week of the quoted night (built on their stay-length column).</li>
+        <li><strong>One idea is excluded despite the biggest gain:</strong> days until the quoted night measures how booked-up a listing is, a result of its price.</li>
+        <li><strong>Their random split overstated accuracy</strong> by <span class="num" id="tm-opt"></span> R² on average, and their filter drops new listings, which a pricing tool must handle.</li>
+        <li><strong>The neural network trails the boosting models alone</strong>; averaged with them it changes the error by about a dollar, within noise. LightGBM stays the pricing model.</li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h3>Adopted from their pipeline</h3>
+      <ul class="plain">
+        <li>In-sample vs out-of-sample reporting for every model.</li>
+        <li>Their readable groupings (6 neighbourhood areas, 10 amenity flags) remain useful for explanation, even though they add no accuracy.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
 <footer>
   <div><strong>Reproduce it.</strong> Run <code>notebooks/boston_airbnb_pricing.ipynb</code> (Phase 1), then <code>notebooks/boston_airbnb_quarterly.ipynb</code> (Phase 2), to train, compare and export the models to <code>interface/data.js</code>. <code>node scripts/verify_js.js</code> checks that the browser calculator matches the Python models.</div>
   <div>Data: Inside Airbnb, Boston quarterly snapshots (Dec 2025 – Sep 2026). Model metrics come from the notebook run and are not hand-entered.</div>
@@ -1263,6 +1319,52 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
       el("text", { x: r.v >= 0 ? x1 + 5 : x0 - 5, y: y + rowH / 2 + 4, "text-anchor": r.v >= 0 ? "start" : "end" }, svg, (r.v >= 0 ? "+" : "") + r.v.toFixed(2));
     });
     $("p3b-photos").textContent = Math.round(R.photo_coverage * 100) + "%";
+  })();
+
+  /* ---------- team merge ---------- */
+  (function () {
+    var R = P.team_merge; if (!R) return;
+    $("tm-rows").textContent = R.n_team_rows.toLocaleString("en-US");
+    $("tm-base").textContent = fmt$(R.base_cv_mae);
+    $("tm-opt").textContent = R.optimism_r2.toFixed(2);
+    var ST = {}; R.stress.forEach(function (r) { (ST[r.model] = ST[r.model] || {})[r.split] = r; });
+    var names = Object.keys(ST), svg = $("ch-tm-stress"), W = 480, L = 150, Rr = 46, rowH = 46, T = 4;
+    svg.setAttribute("viewBox", "0 0 " + W + " " + (T + names.length * rowH + 18));
+    var x = linScale(0.5, 0.9, L, W - Rr);
+    [0.5, 0.6, 0.7, 0.8, 0.9].forEach(function (v) { el("line", { x1: x(v), x2: x(v), y1: T, y2: T + names.length * rowH, "class": "grid" }, svg); el("text", { x: x(v), y: T + names.length * rowH + 14, "text-anchor": "middle" }, svg, v.toFixed(1)); });
+    names.forEach(function (n, i) {
+      var y = T + i * rowH;
+      el("text", { x: L - 8, y: y + rowH / 2 + 4, "text-anchor": "end", "class": "ink" }, svg, n.replace(" (CV)", "").replace(" (V)", ""));
+      [["random 5-fold (their CV)", "var(--muted)", 6], ["host-grouped 5-fold", "var(--harbor)", 24]].forEach(function (t) {
+        var v = ST[n][t[0]].R2_log;
+        el("rect", { x: L, y: y + t[2], width: Math.max(1, x(v) - L), height: 15, rx: 2, fill: t[1] }, svg);
+        el("text", { x: x(v) + 5, y: y + t[2] + 12, "class": "ink" }, svg, v.toFixed(3));
+      });
+    });
+    var hb = document.querySelector("#tbl-h2h tbody"), best = Math.min.apply(null, R.h2h.map(function (r) { return r["host-grouped CV MAE ($)"]; }));
+    R.h2h.forEach(function (r) {
+      var tr = document.createElement("tr"); if (r["host-grouped CV MAE ($)"] === best) tr.className = "best";
+      tr.innerHTML = "<td></td><td></td><td class='num'>$" + r["host-grouped CV MAE ($)"].toFixed(2) + "</td>";
+      tr.children[0].textContent = r.features; tr.children[1].textContent = r.model; hb.appendChild(tr);
+    });
+    var theirs = R.h2h.filter(function (r) { return /their 48/.test(r.features); }), ours = R.h2h.filter(function (r) { return /our/.test(r.features); });
+    var mt = Math.min.apply(null, theirs.map(function (r) { return r["host-grouped CV MAE ($)"]; })), mo = Math.min.apply(null, ours.map(function (r) { return r["host-grouped CV MAE ($)"]; }));
+    $("h2h-note").textContent = "Switching the feature set lowers the error by " + Math.round((1 - mo / mt) * 100) + "%; switching the model changes it by under a dollar. Features matter more than the algorithm.";
+    var ib = document.querySelector("#tbl-ideas tbody");
+    R.summary.filter(function (r) { return r.from !== "Ours"; }).forEach(function (r) {
+      var tr = document.createElement("tr"); tr.innerHTML = "<td></td><td></td><td></td><td></td>";
+      tr.children[0].textContent = r.element; tr.children[1].textContent = r.from; tr.children[3].textContent = r.evidence;
+      var chip = document.createElement("span"); chip.className = "chip " + (r.status === "Kept" || r.status === "Adopted" ? "use" : r.status === "Excluded" ? "target" : "drop");
+      chip.textContent = r.status; tr.children[2].appendChild(chip);
+      if (r.status === "Kept") tr.className = "best"; ib.appendChild(tr);
+    });
+    $("tm-merged").textContent = "Merged (base + kept ideas): " + fmt$(R.merged_cv_mae) + " vs " + fmt$(R.base_cv_mae) + ", lower in " + R.merged_folds_better + " of 5 folds.";
+    var mb = document.querySelector("#tbl-tm-models tbody"), bm = Math.min.apply(null, R.models.map(function (r) { return r["out MAE_$"]; }));
+    R.models.slice().sort(function (a, b) { return a["out MAE_$"] - b["out MAE_$"]; }).forEach(function (r) {
+      var tr = document.createElement("tr"); if (r.model === "LightGBM") tr.className = "best";
+      tr.innerHTML = "<td></td><td class='num'>" + r["in R2_log"].toFixed(3) + "</td><td class='num'>" + r["out R2_log"].toFixed(3) + "</td><td class='num'>" + r["overfit gap (R²)"].toFixed(3) + "</td><td class='num'>" + fmt$(r["out MAE_$"]) + "</td>";
+      tr.firstChild.textContent = r.model; mb.appendChild(tr);
+    });
   })();
 
   /* ---------- map ---------- */
