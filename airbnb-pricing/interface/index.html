@@ -235,6 +235,7 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
       <a href="#quarterly">Quarterly</a>
       <a href="#richer">Richer data</a>
       <a href="#team">Team merge</a>
+      <a href="#trust">Trust</a>
     </nav>
   </div>
 </header>
@@ -814,10 +815,10 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
       <svg id="ch-asp" viewBox="0 0 440 360" width="100%" role="img" aria-label="Review aspects vs price"></svg>
     </div>
     <div class="panel">
-      <h3>Not possible yet</h3>
+      <h3 id="p3b-limits-h">Not possible yet</h3>
       <ul class="plain">
         <li><strong>Seasonality:</strong> Inside Airbnb's calendar files no longer contain nightly prices (empty in December, removed from March on). Only availability remains, which reflects bookings, a result of the price.</li>
-        <li><strong>Pretrained text and photo models</strong> (<span class="mono">bge-small</span>, <span class="mono">CLIP ViT-B/32</span>): the code is ready and <span class="num" id="p3b-photos"></span> of cover photos are downloaded, but the network blocks Hugging Face's model file CDN.</li>
+        <li id="p3b-dl"><strong>Pretrained text and photo models</strong> (<span class="mono">bge-small</span>, <span class="mono">CLIP ViT-B/32</span>): the code is ready and <span class="num" id="p3b-photos"></span> of cover photos are downloaded, but the network blocks Hugging Face's model file CDN.</li>
         <li><strong>Zillow rent index:</strong> published by ZIP code, and the listings have no ZIP.</li>
       </ul>
       <p class="out-note" style="margin-top:10px">Zillow home values add nothing within Boston because the model already knows the neighbourhood. Their value is for comparing cities.</p>
@@ -877,6 +878,47 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
         <li>Their readable groupings (6 neighbourhood areas, 10 amenity flags) remain useful for explanation, even though they add no accuracy.</li>
       </ul>
     </div>
+  </div>
+</section>
+
+<!-- ============ OVERFITTING ============ -->
+<div class="phase" id="trust"><span class="label">Stress test</span><h2>How much to trust the model</h2></div>
+
+<section class="block" aria-labelledby="of-h" style="border-top:0; padding-top:24px">
+  <div class="sec-head">
+    <span class="step-no">Step 13</span>
+    <h3 id="of-h" style="font-size:var(--step-3)">Overfitting, selection luck and time drift</h3>
+    <p>The merged model (LightGBM, 141 features) has a host-grouped CV error of <span class="num" id="of-cv"></span> a night. These checks ask how that number could be wrong: memorising training listings, keeping features that only won by luck, or failing on a later season.</p>
+  </div>
+  <div class="grid-2">
+    <div class="panel">
+      <h3>Learning curves</h3>
+      <p class="cap">Held-out error as each model sees more training hosts. A curve still falling at the right edge would gain from more data.</p>
+      <div class="legend" id="of-lc-legend"></div>
+      <svg id="ch-of-lc" viewBox="0 0 480 300" width="100%" role="img" aria-label="Learning curves"></svg>
+    </div>
+    <div class="panel">
+      <h3>Training fit vs held-out</h3>
+      <p class="cap">Average over 5 host-grouped folds. A big gap is memorising; it only matters if held-out error is worse than a simpler model's.</p>
+      <div class="table-scroll"><table id="tbl-of-gap"><thead><tr><th>Model</th><th class="num">Train R²</th><th class="num">Held-out R²</th><th class="num">Gap</th><th class="num">Held-out MAE</th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="panel">
+      <h3>Could a feature win by luck?</h3>
+      <div class="qprices" id="of-noise"></div>
+      <p class="out-note" id="of-noise-note"></p>
+    </div>
+    <div class="panel">
+      <h3>Next season, new hosts</h3>
+      <p class="cap">Trained on June, tested on September listings from hosts never seen. The 80% range is built from June errors.</p>
+      <div class="table-scroll"><table id="tbl-of-oot"><thead><tr><th>Training data</th><th class="num">Sep MAE</th><th class="num">Bias</th><th class="num">80% range covers</th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>Where it goes wrong</h3>
+    <p class="cap">Out-of-fold predictions for every listing. Bias above 0 means the model over-prices that group.</p>
+    <div class="table-scroll"><table id="tbl-of-seg"><thead><tr><th>Group</th><th class="num">Listings</th><th class="num">MAE</th><th class="num">Bias</th><th class="num">Within ±20%</th></tr></thead><tbody></tbody></table></div>
   </div>
 </section>
 
@@ -1319,6 +1361,10 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
       el("text", { x: r.v >= 0 ? x1 + 5 : x0 - 5, y: y + rowH / 2 + 4, "text-anchor": r.v >= 0 ? "start" : "end" }, svg, (r.v >= 0 ? "+" : "") + r.v.toFixed(2));
     });
     $("p3b-photos").textContent = Math.round(R.photo_coverage * 100) + "%";
+    if (R.models_available && R.models_available.text) {
+      $("p3b-limits-h").textContent = "Limits of this step";
+      $("p3b-dl").innerHTML = "<strong>Pretrained models ran.</strong> <span class='mono'>bge-small</span> read the descriptions and reviews, and <span class='mono'>CLIP ViT-B/32</span> read " + Math.round(R.photo_coverage * 100) + "% of cover photos (the rest no longer exist on Airbnb). Both are frozen, compressed to 16 numbers inside each fold, and fed to LightGBM. Their rows in the table above show what they add.";
+    }
   })();
 
   /* ---------- team merge ---------- */
@@ -1364,6 +1410,56 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
       var tr = document.createElement("tr"); if (r.model === "LightGBM") tr.className = "best";
       tr.innerHTML = "<td></td><td class='num'>" + r["in R2_log"].toFixed(3) + "</td><td class='num'>" + r["out R2_log"].toFixed(3) + "</td><td class='num'>" + r["overfit gap (R²)"].toFixed(3) + "</td><td class='num'>" + fmt$(r["out MAE_$"]) + "</td>";
       tr.firstChild.textContent = r.model; mb.appendChild(tr);
+    });
+  })();
+
+  /* ---------- overfitting ---------- */
+  (function () {
+    var R = P.overfit; if (!R) return;
+    $("of-cv").textContent = fmt$(R.cv_mae);
+    var MC = { "Ridge": "var(--m-lasso)", "Random forest": "var(--m-rf)", "Neural network (MLP)": "var(--m-ols)", "LightGBM": "var(--m-gb)" };
+    var lg = $("of-lc-legend"), byM = {};
+    R.learning_curve.forEach(function (r) { (byM[r.model] = byM[r.model] || []).push(r); });
+    Object.keys(byM).forEach(function (m) { var sp = document.createElement("span"); sp.innerHTML = "<span class='swatch' style='background:" + (MC[m] || "var(--muted)") + "'></span>"; sp.appendChild(document.createTextNode(m)); lg.appendChild(sp); });
+    var all = R.learning_curve, svg = $("ch-of-lc"), W = 480, H = 300, L = 48, Rr = 16, T = 10, B = 34;
+    var nx = all.map(function (r) { return r.n_train; }), ny = all.map(function (r) { return r.MAE; });
+    var x = linScale(0, Math.max.apply(null, nx) * 1.02, L, W - Rr);
+    var lo = Math.floor(Math.min.apply(null, ny) / 10) * 10, hi = Math.ceil(Math.max.apply(null, ny) / 10) * 10, yS = linScale(lo, hi, H - B, T);
+    for (var v = lo; v <= hi; v += 10) { el("line", { x1: L, x2: W - Rr, y1: yS(v), y2: yS(v), "class": "grid" }, svg); el("text", { x: L - 6, y: yS(v) + 4, "text-anchor": "end" }, svg, "$" + v); }
+    [1000, 2000, 3000, 4000, 5000].forEach(function (n) { if (n < Math.max.apply(null, nx)) el("text", { x: x(n), y: H - B + 16, "text-anchor": "middle" }, svg, n.toLocaleString("en-US")); });
+    el("text", { x: (L + W) / 2, y: H - 4, "text-anchor": "middle" }, svg, "training listings");
+    Object.keys(byM).forEach(function (m) {
+      var pts = byM[m].sort(function (a, b) { return a.n_train - b.n_train; }).map(function (r) { return [x(r.n_train), yS(r.MAE)]; });
+      el("polyline", { points: pts.map(function (p) { return p.join(","); }).join(" "), fill: "none", stroke: MC[m] || "var(--muted)", "stroke-width": 2.5 }, svg);
+      pts.forEach(function (p) { el("circle", { cx: p[0], cy: p[1], r: 3.5, fill: MC[m] || "var(--muted)" }, svg); });
+    });
+    var gb = document.querySelector("#tbl-of-gap tbody");
+    R.gap.slice().sort(function (a, b) { return a.heldout_MAE - b.heldout_MAE; }).forEach(function (r, i) {
+      var tr = document.createElement("tr"); if (i === 0) tr.className = "best";
+      tr.innerHTML = "<td></td><td class='num'>" + r.train_R2.toFixed(3) + "</td><td class='num'>" + r.heldout_R2.toFixed(3) + "</td><td class='num'>" + (r.train_R2 - r.heldout_R2).toFixed(3) + "</td><td class='num'>" + fmt$(r.heldout_MAE) + "</td>";
+      tr.firstChild.textContent = r.model; gb.appendChild(tr);
+    });
+    var nb = $("of-noise");
+    [["Noise features that passed", R.noise.kept + " of " + R.noise.tested], ["Merge gain, honest (nested)", (R.nested.nested_change < 0 ? "−$" : "+$") + Math.abs(R.nested.nested_change).toFixed(2)]].forEach(function (t, i) {
+      var d = document.createElement("div"); d.className = "qprice"; d.dataset.active = i ? "true" : "false";
+      d.innerHTML = "<span class='label'></span><span class='v'></span>"; d.querySelector(".label").textContent = t[0]; d.querySelector(".v").textContent = t[1]; nb.appendChild(d);
+    });
+    $("of-noise-note").textContent = "30 features made of pure noise were run through the same keep rule used in the merge; the largest 'gain' from noise was $" + R.noise.max_gain.toFixed(2) + ". Choosing the ideas inside each training fold (nested) and scoring on untouched hosts, the merge changes the error by " + (R.nested.nested_change < 0 ? "−$" : "+$") + Math.abs(R.nested.nested_change).toFixed(2) + " a night (better in " + R.nested.folds_better + " of 5 folds), against " + (R.nested.non_nested_change < 0 ? "−$" : "+$") + Math.abs(R.nested.non_nested_change).toFixed(2) + " when chosen and scored on the same folds.";
+    var ob = document.querySelector("#tbl-of-oot tbody");
+    R.oot.forEach(function (r) {
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td></td><td class='num'>" + fmt$(r["Sep test MAE $"]) + "</td><td class='num'>" + fmtPct(r["median bias %"]) + "</td><td class='num'>" + r["80% range covers"].toFixed(0) + "%</td>";
+      tr.firstChild.textContent = r.model; ob.appendChild(tr);
+    });
+    var sb = document.querySelector("#tbl-of-seg tbody"), NAMES = { price_band: "Actual price", room: "Room type", reviews: "Reviews", min_stay: "Minimum stay" };
+    Object.keys(NAMES).forEach(function (k) {
+      var h = document.createElement("tr"); h.innerHTML = "<th colspan='5'></th>"; h.firstChild.textContent = NAMES[k]; sb.appendChild(h);
+      var rows = R.segments[k]; if (k === "price_band") { var ord = ["cheapest 20%", "2nd", "middle", "4th", "priciest 20%"]; rows = rows.slice().sort(function (a, b) { return ord.indexOf(a[k]) - ord.indexOf(b[k]); }); }
+      rows.forEach(function (r) {
+        var tr = document.createElement("tr");
+        tr.innerHTML = "<td></td><td class='num'>" + r.listings + "</td><td class='num'>" + fmt$(r.MAE) + "</td><td class='num' style='color:" + (Math.abs(r.bias_pct) >= 10 ? "var(--brick)" : "inherit") + "'>" + fmtPct(r.bias_pct) + "</td><td class='num'>" + r.within_20.toFixed(0) + "%</td>";
+        tr.firstChild.textContent = r[k]; sb.appendChild(tr);
+      });
     });
   })();
 
