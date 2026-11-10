@@ -1,6 +1,7 @@
 """Builds notebooks/boston_airbnb_team_merge.ipynb: compare the teammate's ML pipeline with ours and merge them.
 
-Run first:  cd teammate && python Code/clean_listings.py && python Code/train_models.py   (their script, unchanged)
+Run first:  cd teammate && python Code/clean_listings.py && python Code/train_models.py   (their scripts, unchanged;
+            clean_listings.py reads Data/Raw/listings.csv = the September detailed export, not committed)
 Then:       python scripts/build_merge_notebook.py
             jupyter nbconvert --to notebook --execute --inplace notebooks/boston_airbnb_team_merge.ipynb
 """
@@ -15,10 +16,10 @@ code = lambda s: cells.append(nbf.v4.new_code_cell(s.strip()))
 md(r"""
 # Merging the teammate's pipeline with ours
 
-A teammate built a separate pricing pipeline: `teammate/Code/train_models.py` plus a variable-screening workbook (`teammate/Boston_Airbnb_Variable_Screening.xlsx`). This notebook does four things:
+A teammate built a separate pricing pipeline: `teammate/Code/clean_listings.py` (cleaning and features, driven by the workbook `teammate/Data/Data Cleaning/Boston_Airbnb_Variable_Screening.xlsx`) and `teammate/Code/train_models.py` (six models). This notebook does four things:
 
 1. **Explains** what their pipeline does and how it differs from ours.
-2. **Reproduces** their results by running their script unchanged on a re-creation of their cleaning step. Their `clean_listings.py` was not shared, so `teammate/Code/clean_listings.py` follows the workbook rule by rule.
+2. **Reproduces** their results by running both of their scripts unchanged on the September detailed export.
 3. **Tests** each of their ideas on our pipeline, one at a time, under our host-grouped evaluation.
 4. **Merges** the ideas that help, and compares every model type on the merged feature set, including their neural network.
 """)
@@ -76,7 +77,32 @@ _js = (OUT / "data.js").read_text(); BUNDLE = json.loads(_js[_js.index("{"): _js
 md(r"""
 ## 2. Their results, reproduced
 
-`teammate/Code/train_models.py` was run unchanged. It wrote `teammate/Results/model_performance.csv` and a Markdown report with the tuned hyperparameters.
+Both scripts were run unchanged. `clean_listings.py` wrote `teammate/Data/Processed/listings_clean.csv` and a data-quality report; `train_models.py` wrote `teammate/Results/model_performance.csv` and a Markdown report with the tuned hyperparameters.
+
+Their cleaning step reads its category mappings straight from the workbook and writes a data-quality report. Its checks found 18 listings with 0 bathrooms (kept as 0), and 11 listings flagged as having outdoor space only because "Garden view" contains "garden". Both are minor.
+""")
+
+code(r"""
+qr = (TEAM / "Data" / "Processed" / "data_quality_report.md").read_text()
+print(qr.split("## 2.")[0].split("## 1. Sample size")[1].strip())
+print(qr.split("## 4. Unexpected values and checks")[1].split("## 5.")[0].strip())
+""")
+
+md(r"""
+**Can their rules be reused on other data?** To test their ideas on June as well as September, their rules are packaged as functions in `src/team_features.py`. The check below confirms that the functions reproduce their script's output on September, column for column.
+""")
+
+code(r"""
+clean_check = pd.read_csv(TEAM / "Data" / "Processed" / "listings_clean.csv")
+raw_sep = pd.read_csv(TEAM / "Data" / "Raw" / "listings.csv", low_memory=False)
+raw_sep["price"] = pd.to_numeric(raw_sep["price"].astype(str).str.replace(r"[$,]", "", regex=True), errors="coerce")
+raw_sep = raw_sep[(raw_sep["price"] > 0) & (raw_sep["number_of_reviews"] > 0)].reset_index(drop=True)
+mine, _ = tf.team_features(raw_sep)
+cols = [c for c in mine.columns if c in clean_check.columns]
+mismatch = {c: int((~np.isclose(mine[c].astype(float), clean_check[c].astype(float), equal_nan=True)).sum()) for c in cols}
+print(f"{len(cols)} of {mine.shape[1]} columns compared; rows: {len(mine)} vs {len(clean_check)}")
+print("columns that differ:", {k: v for k, v in mismatch.items() if v} or "none")
+assert all(v == 0 for v in mismatch.values()) and len(cols) == 48
 """)
 
 code(r"""
@@ -148,7 +174,7 @@ gap.round(3)
 """)
 
 md(r"""
-**Reading.** Every model loses accuracy once hosts can't appear on both sides. This is the same effect we found in Phase 1. Part of it comes from `log_host_listings_count`, which lets models recognise large operators. The honest numbers are the host-grouped ones.
+**Reading.** Every model loses accuracy once hosts can't appear on both sides. This is the same effect we found in Phase 1. Part of it comes from `log1p_host_listings_count`, which lets models recognise large operators. The honest numbers are the host-grouped ones.
 """)
 
 md(r"""

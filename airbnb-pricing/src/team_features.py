@@ -1,6 +1,7 @@
-"""The teammate's cleaning pipeline (Boston_Airbnb_Variable_Screening.xlsx), re-implemented.
+"""The teammate's cleaning rules (teammate/Code/clean_listings.py), as reusable functions.
 
-Their clean_listings.py was not shared, so this follows the spreadsheet's rules column by column:
+Used to apply their features to other snapshots (June) and inside our pipeline. Output matches their
+script on the September sample column for column (checked in notebooks/boston_airbnb_team_merge.ipynb):
 48 features = 6 neighbourhood areas + 6 property groups + 4 room types + 5 size/bath
 + 10 amenity flags + 4 host + 7 review scores + 4 review history + 2 booking rules.
 `train_models.py` (scripts/teammate/) consumes the same 48 columns.
@@ -21,7 +22,7 @@ AREA_COL = {
     "Downtown / Historic Core": "nbhd_downtown_historic_core",
     "Premium Central / Waterfront": "nbhd_premium_central_waterfront",
     "University / Medical / Cultural": "nbhd_university_medical_cultural",
-    "Inner Residential / Mixed-use": "nbhd_inner_residential_mixed",
+    "Inner Residential / Mixed-use": "nbhd_inner_residential_mixed_use",
     "Outer Residential – West": "nbhd_outer_residential_west",
     "Outer Residential – South": "nbhd_outer_residential_south",
 }
@@ -39,7 +40,7 @@ PROPERTY_GROUP = {
 GROUP_OF = {t: g for g, ts in PROPERTY_GROUP.items() for t in ts}
 PROP_COL = {
     "Apartment / Condo": "prop_apartment_condo", "House / Townhouse": "prop_house_townhouse",
-    "Serviced accommodation": "prop_serviced", "Hotel / B&B": "prop_hotel_bnb",
+    "Serviced accommodation": "prop_serviced_accommodation", "Hotel / B&B": "prop_hotel_b_b",
     "Guest accommodation": "prop_guest_accommodation", "Other / Specialty": "prop_other_specialty",
 }
 ROOM_COL = {"Entire home/apt": "room_entire_home_apt", "Private room": "room_private_room",
@@ -58,6 +59,7 @@ AMENITY_ROOTS = {
     "has_outdoor_space": ["patio", "balcony", "backyard", "garden", "terrace", "outdoor dining", "outdoor furniture"],
     "allows_pets": ["pets allowed", "pet friendly"],
 }
+DAYS_PER_MONTH = 365.25 / 12
 REVIEW_SCORES = ["review_scores_rating", "review_scores_accuracy", "review_scores_cleanliness", "review_scores_checkin",
                  "review_scores_communication", "review_scores_location", "review_scores_value"]
 MEDIAN_IMPUTE = ["accommodates", "bedrooms", "beds", "bathrooms", "minimum_nights", "number_of_reviews",
@@ -109,16 +111,16 @@ def team_features(d, impute_medians=None):
     X["bathrooms"] = [v for v, _ in b]
     X["bathrooms_share"] = [s for _, s in b]
     X = pd.concat([X, pd.DataFrame([_amenity_flags(a) for a in d["amenities"]], index=d.index)], axis=1)
-    X["host_experience_months"] = 12 * d["hosts_time_as_host_years"].fillna(0) + d["hosts_time_as_host_months"].fillna(0)
+    X["total_host_experience_months"] = 12 * d["hosts_time_as_host_years"].fillna(0) + d["hosts_time_as_host_months"].fillna(0)
     X["host_is_superhost"] = (d["host_is_superhost"] == "t").astype(int)
     X["host_identity_verified"] = (d["host_identity_verified"] == "t").astype(int)
-    X["log_host_listings_count"] = np.log1p(d["host_listings_count"].fillna(1))
+    X["log1p_host_listings_count"] = np.log1p(d["host_listings_count"].fillna(1))
     for c in REVIEW_SCORES:
         X[c] = d[c].astype(float)
     X["number_of_reviews"] = d["number_of_reviews"].astype(float)
     X["number_of_reviews_ltm"] = d["number_of_reviews_ltm"].astype(float)
     scraped = pd.to_datetime(d["last_scraped"])
-    X["months_since_first_review"] = (scraped - pd.to_datetime(d["first_review"])).dt.days / 30.44
+    X["months_since_first_review"] = (scraped - pd.to_datetime(d["first_review"])).dt.days / DAYS_PER_MONTH
     X["days_since_last_review"] = (scraped - pd.to_datetime(d["last_review"])).dt.days.astype(float)
     X["minimum_nights"] = d["minimum_nights"].astype(float)
     X["stay_length"] = (pd.to_datetime(d["price_quote_checkout_date"]) - pd.to_datetime(d["price_quote_checkin_date"])).dt.days.astype(float)
@@ -133,7 +135,7 @@ def extra_features(d):
     X = pd.DataFrame(index=d.index)
     scraped = pd.to_datetime(d["last_scraped"])
     X["host_experience_months"] = 12 * d["hosts_time_as_host_years"] + d["hosts_time_as_host_months"]
-    X["months_since_first_review"] = (scraped - pd.to_datetime(d["first_review"])).dt.days / 30.44
+    X["months_since_first_review"] = (scraped - pd.to_datetime(d["first_review"])).dt.days / DAYS_PER_MONTH
     ci, co = pd.to_datetime(d["price_quote_checkin_date"]), pd.to_datetime(d["price_quote_checkout_date"])
     X["stay_length"] = (co - ci).dt.days.astype(float)
     X["log_host_listings_count"] = np.log1p(d["host_listings_count"])

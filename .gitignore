@@ -2,3 +2,4 @@ airbnb-pricing/data/raw/
 __pycache__/
 *.pyc
 catboost_info/
+airbnb-pricing/teammate/Data/Raw/
