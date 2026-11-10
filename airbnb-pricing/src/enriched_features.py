@@ -306,3 +306,31 @@ def review_text_by_listing(reviews, snapshot_date, n_recent=30):
     aspects["n_reviews_text"] = g.size()
     aspects["review_len_mean"] = g.apply(lambda s: s.str.len().mean())
     return text, aspects
+
+
+# ---------------------------------------------------------------- the merged model's feature matrix
+
+def build_merged_matrix(data_dir, zone_centers):
+    """Rows and features of the current recommended model: Phase 3 Steps 1-2 (without the neighbours'
+    market price) + the two ideas kept from the teammate merge (months since first review, day of week
+    of the quoted night). Returns (A, X, y, groups)."""
+    data_dir = Path(data_dir)
+    official = pd.read_csv(data_dir / "neighbourhoods.csv")["neighbourhood"]
+    geo = pf.load_geo(data_dir / "neighbourhoods.geojson")
+    H = pf.model_neighbourhoods(official)
+    frames, supply = [], []
+    for q, f in [("2026Q2", "listings_detailed_2026Q2_jun.csv.gz"), ("2026Q3", "listings_detailed_2026Q3_sep.csv.gz")]:
+        raw = load_detailed(data_dir / "detailed" / f)
+        a, _ = pf.precheck(raw, official, geo, require_price=False); a["quarter"] = q; supply.append(a)
+        d, _ = pf.precheck(raw, official, geo); d["quarter"] = q; frames.append(d)
+    A = pd.concat(frames, ignore_index=True)
+    S = pd.concat(supply, ignore_index=True)
+    props = sorted(set(PROPERTY_GROUPS.values())) + ["other"]
+    scraped = pd.to_datetime(A["last_scraped"])
+    qci = pd.to_datetime(A["price_quote_checkin_date"])
+    kept = pd.DataFrame(index=A.index)
+    kept["months_since_first_review"] = (scraped - pd.to_datetime(A["first_review"])).dt.days / (365.25 / 12)
+    kept = kept.join(pd.get_dummies(qci.dt.dayofweek, prefix="quote_dow").astype(float).set_index(A.index))
+    X = pd.concat([pf.build_features(A, H), time_zone_features(A, data_dir / "quarterly", zone_centers),
+                   detailed_features(A, props), landmark_features(A), density_features(A, S), kept], axis=1)
+    return A, X, np.log(A["price"].values), A["host_id"].values
