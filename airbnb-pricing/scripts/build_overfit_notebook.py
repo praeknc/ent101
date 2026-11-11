@@ -57,6 +57,9 @@ KEPT = ["months_since_first_review"] + [c for c in X.columns if c.startswith("qu
 BASE = X.drop(columns=KEPT)
 LGB = dict(n_estimators=900, learning_rate=0.03, num_leaves=31, min_child_samples=20, subsample=0.8, subsample_freq=1,
            colsample_bytree=0.6, reg_lambda=1.0, random_state=SEED, verbose=-1)
+# Repeated checks (learning curves, noise test, nested selection, tuning grid) use a faster LightGBM:
+# 300 trees at learning rate 0.08 instead of 900 at 0.03. The headline CV error uses the full model.
+FAST = {**LGB, "n_estimators": 300, "learning_rate": 0.08}
 FOLDS = list(GroupKFold(5).split(X, y, groups))
 mae = lambda yt, yp: mean_absolute_error(np.exp(yt), np.exp(yp))
 print(X.shape, "| base without the merged ideas:", BASE.shape[1], "features")
@@ -78,6 +81,9 @@ MODELS = {
                                                      n_iter_no_change=30, random_state=SEED)),
     "LightGBM": lambda: lgb.LGBMRegressor(**LGB),
 }
+LC_MODELS = {**MODELS, "LightGBM": lambda: lgb.LGBMRegressor(**FAST),
+             "Random forest": lambda: Pipeline([("i", SimpleImputer(strategy="median", add_indicator=True)),
+                                                ("m", RandomForestRegressor(n_estimators=150, max_features=0.33, random_state=SEED, n_jobs=-1))])}
 rows = []
 for name, make in MODELS.items():
     for k, (a, b) in enumerate(FOLDS):
@@ -93,11 +99,11 @@ gap.sort_values(("heldout_MAE", "mean"))
 md(r"""
 ## 2. Learning curves: would more data help, and which model would gain most?
 
-Each model is trained on 20% to 100% of every fold's training hosts and scored on the same held-out hosts. A curve that is still falling at 100% means more data would help. This matters for deep learning: neural networks usually need the most data.
+Each model is trained on 25% to 100% of every fold's training hosts (LightGBM and random forest in their faster settings) and scored on the same held-out hosts. A curve that is still falling at 100% means more data would help. This matters for deep learning: neural networks usually need the most data.
 """)
 
 code(r"""
-fracs = [0.2, 0.4, 0.6, 0.8, 1.0]
+fracs = [0.25, 0.5, 0.75, 1.0]
 lc = []
 rng = np.random.default_rng(SEED)
 for k, (a, b) in enumerate(FOLDS):
@@ -105,7 +111,7 @@ for k, (a, b) in enumerate(FOLDS):
     for f in fracs:
         keep_h = set(hosts[: max(1, int(len(hosts) * f))])
         aa = a[np.isin(groups[a], list(keep_h))]
-        for name, make in MODELS.items():
+        for name, make in LC_MODELS.items():
             m = make().fit(X.iloc[aa], y[aa])
             lc.append({"model": name, "fold": k, "frac": f, "n_train": len(aa), "MAE": mae(y[b], m.predict(X.iloc[b]))})
 lc = pd.DataFrame(lc)
@@ -116,35 +122,36 @@ for name, g in curve.groupby("model"):
 ax.set_xlabel("training listings"); ax.set_ylabel("held-out MAE ($/night)"); ax.set_title("Learning curves (host-grouped 5-fold)"); ax.legend()
 plt.tight_layout(); plt.show()
 slope = curve.pivot(index="model", columns="frac", values="MAE")
-slope["gain from last 20% of data ($)"] = slope[0.8] - slope[1.0]
-slope["gain 20%→100% ($)"] = slope[0.2] - slope[1.0]
+slope["gain from last 25% of data ($)"] = slope[0.75] - slope[1.0]
+slope["gain 25%→100% ($)"] = slope[0.25] - slope[1.0]
 slope.round(2)
 """)
 
 md(r"""
 ## 3. How often would our "keep" rule accept a useless feature?
 
-Every idea in the merge was judged by the same rule: lower error, in at least 4 of 5 folds. To estimate the rule's false-positive rate, 30 features that **cannot** carry information are tested the same way: 10 random numbers, 10 random yes/no flags, and 10 real features shuffled across listings.
+Every idea in the merge was judged by the same rule: lower error, in at least 4 of 5 folds. To estimate the rule's false-positive rate, 15 features that **cannot** carry information are tested the same way: 5 random numbers, 5 random yes/no flags, and 5 real features shuffled across listings. The fast LightGBM setting is used for both the base and each noise test, so the comparison is like for like.
 """)
 
 code(r"""
-def cv_mae(Xm):
-    return np.array([mae(y[b], lgb.LGBMRegressor(**LGB).fit(Xm.iloc[a], y[a]).predict(Xm.iloc[b])) for a, b in FOLDS])
-base_err = cv_mae(BASE)
+def cv_mae(Xm, params=LGB):
+    return np.array([mae(y[b], lgb.LGBMRegressor(**params).fit(Xm.iloc[a], y[a]).predict(Xm.iloc[b])) for a, b in FOLDS])
+base_err = cv_mae(BASE)                 # full model: the headline numbers
+base_fast = cv_mae(BASE, FAST)          # fast model: reference for the noise test
 rng = np.random.default_rng(7)
-real_cols = ["accommodates", "rs_location", "d_logan_airport", "am_count", "beds", "rs_value", "supply_1km", "desc_len", "baths", "rs_rating"]
+real_cols = ["accommodates", "rs_location", "d_logan_airport", "am_count", "supply_1km"]
 noise = {}
-for i in range(10): noise[f"gaussian_{i}"] = rng.normal(size=len(X))
-for i in range(10): noise[f"binary_{i}"] = (rng.random(len(X)) < 0.1).astype(float)
+for i in range(5): noise[f"gaussian_{i}"] = rng.normal(size=len(X))
+for i in range(5): noise[f"binary_{i}"] = (rng.random(len(X)) < 0.1).astype(float)
 for c in real_cols: noise[f"shuffled_{c}"] = rng.permutation(X[c].values)
 nrows = []
 for name, v in noise.items():
-    e = cv_mae(pd.concat([BASE, pd.Series(v, index=X.index, name="noise")], axis=1))
-    nrows.append({"noise feature": name, "change $": (e - base_err).mean(), "folds improved": int((e < base_err).sum())})
+    e = cv_mae(pd.concat([BASE, pd.Series(v, index=X.index, name="noise")], axis=1), FAST)
+    nrows.append({"noise feature": name, "change $": (e - base_fast).mean(), "folds improved": int((e < base_fast).sum())})
 noise_df = pd.DataFrame(nrows)
 noise_df["would be kept"] = (noise_df["change $"] < 0) & (noise_df["folds improved"] >= 4)
 fp_rate = noise_df["would be kept"].mean()
-print(f"base CV MAE ${base_err.mean():.2f} | noise features passing the keep rule: {noise_df['would be kept'].sum()} of {len(noise_df)} ({fp_rate:.0%})")
+print(f"base CV MAE ${base_err.mean():.2f} (fast setting ${base_fast.mean():.2f}) | noise features passing the keep rule: {noise_df['would be kept'].sum()} of {len(noise_df)} ({fp_rate:.0%})")
 print(f"largest improvement from pure noise: ${-noise_df['change $'].min():.2f}; typical size of a noise change: ±${noise_df['change $'].abs().median():.2f}")
 noise_df.sort_values("change $").head(8).round(3)
 """)
@@ -172,7 +179,7 @@ for k, (a, b) in enumerate(FOLDS):
     inner = list(GroupKFold(4).split(a, y[a], groups[a]))
     def inner_err(Xm):
         Xa = Xm.iloc[a]
-        return np.array([mae(y[a][ib], lgb.LGBMRegressor(**LGB).fit(Xa.iloc[ia], y[a][ia]).predict(Xa.iloc[ib])) for ia, ib in inner])
+        return np.array([mae(y[a][ib], lgb.LGBMRegressor(**FAST).fit(Xa.iloc[ia], y[a][ia]).predict(Xa.iloc[ib])) for ia, ib in inner])
     e0 = inner_err(BASE)
     chosen = [n for n, blk in IDEAS.items() if (lambda e: (e - e0).mean() < 0 and (e < e0).sum() >= 3)(inner_err(pd.concat([BASE, blk], axis=1)))]
     Xsel = pd.concat([BASE] + [IDEAS[n] for n in chosen], axis=1)
@@ -224,12 +231,12 @@ code(r"""
 sens = []
 for leaves in [15, 31, 63]:
     for mcs in [10, 20, 50]:
-        for lr, n in [(0.03, 900), (0.015, 1800)]:
+        for lr, n in [(0.03, 900)]:
             p = {**LGB, "num_leaves": leaves, "min_child_samples": mcs, "learning_rate": lr, "n_estimators": n}
             e = [mae(y[b], lgb.LGBMRegressor(**p).fit(X.iloc[a], y[a]).predict(X.iloc[b])) for a, b in FOLDS]
             sens.append({"num_leaves": leaves, "min_child_samples": mcs, "learning_rate": lr, "CV MAE": np.mean(e)})
 sens = pd.DataFrame(sens)
-print(f"18 settings: CV MAE from ${sens['CV MAE'].min():.2f} to ${sens['CV MAE'].max():.2f} (spread ${sens['CV MAE'].max() - sens['CV MAE'].min():.2f}); "
+print(f"9 settings: CV MAE from ${sens['CV MAE'].min():.2f} to ${sens['CV MAE'].max():.2f} (spread ${sens['CV MAE'].max() - sens['CV MAE'].min():.2f}); "
       f"current setting ${sens.query('num_leaves == 31 and min_child_samples == 20 and learning_rate == 0.03')['CV MAE'].iloc[0]:.2f}")
 sens.sort_values("CV MAE").head(5).round(2)
 """)
@@ -280,7 +287,7 @@ md(r"""
 The tables above give the exact figures; the points below interpret them.
 
 **Overfitting**
-* **The model memorises, but that isn't what limits it.** LightGBM's training R² is far above its held-out R², like every tree model. Yet it still has the best held-out error, and its errors move little across the 18 hyperparameter settings.
+* **The model memorises, but that isn't what limits it.** LightGBM's training R² is far above its held-out R², like every tree model. Yet it still has the best held-out error, and its errors move little across the 9 hyperparameter settings.
 * **Selection overfitting is the real risk.** Pure-noise features sometimes pass the keep rule, so small gains (well under a dollar) can't be distinguished from luck. The nested test gives the honest value of the merge; gains that survive it are real.
 * **Time drift is the biggest practical risk.** A summer-trained model over-prices September. Training on both quarters reduces the bias but doesn't remove it, and the 80% range should be checked on new data before it is trusted.
 
