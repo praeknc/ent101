@@ -154,7 +154,7 @@ input[type="range"] { width: 100%; accent-color: var(--harbor); }
 .price-head { display: grid; gap: 4px; }
 .price-big { font-family: var(--font-display); font-weight: 700; font-size: clamp(3rem, 8vw, 4.6rem); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 .price-big small { font-size: 0.3em; font-weight: 500; color: var(--muted); letter-spacing: 0; }
-.range-bar { position: relative; height: 54px; margin-top: 6px; }
+.range-bar { position: relative; display: block; width: 100%; height: 54px; margin-top: 6px; }
 .out-note { font-size: 0.9rem; color: var(--muted); }
 .drivers { display: grid; gap: 6px; }
 .driver { display: grid; grid-template-columns: minmax(0, 1fr) 70px; gap: 10px; align-items: center; font-size: 0.92rem; }
@@ -271,7 +271,7 @@ ol.flow { margin: 0; padding-left: 1.2em; display: grid; gap: 10px; max-width: 6
     <div><span class="v num" id="f-rows">7,039</span><span class="k">priced listings (June + September 2026) used for the final model</span></div>
     <div><span class="v num" id="f-feat">141</span><span class="k">features a host can describe, kept after screening</span></div>
     <div><span class="v num" id="f-mae">$85</span><span class="k" id="f-mae-k">average error per night on hosts the model never saw</span></div>
-    <div><span class="v num" id="f-r2">0.78</span><span class="k">R² on log price (share of price variation explained)</span></div>
+    <div><span class="v num" id="f-r2">0.80</span><span class="k">R² on log price (share of price variation explained)</span></div>
   </div>
 </section>
 
@@ -918,10 +918,12 @@ ol.flow { margin: 0; padding-left: 1.2em; display: grid; gap: 10px; max-width: 6
     if (nnT) parts.push("The language model adds " + sgn$(nnT["change vs previous rung"]) + " on top (" + nnT["folds improved"] + " of 5).");
     if (nnI) parts.push("The photo model adds " + sgn$(nnI["change vs previous rung"]) + " (" + nnI["folds improved"] + " of 5).");
     if (alt) parts.push("Used instead of classic text, the two networks change the error by " + sgn$(alt["change vs previous rung"]) + " compared with the listing features alone.");
-    parts.push("The calculator runs the listing-feature model (" + "$" + dep["CV MAE ($/night)"].toFixed(2) + "): it needs only what a host can type, and no step passed the rule of at least $1 better in 4 of 5 folds that would justify loading a language or image model into the page. The best research setup reaches $" + bestAll["CV MAE ($/night)"].toFixed(2) + ".");
-    var passed = Object.keys(C.decision).filter(function (k) { return C.decision[k] === "deploy"; });
-    if (passed.length) parts[parts.length - 1] = "Steps that passed the rule (at least $1 better in 4 of 5 folds): " + passed.map(short).join(", ") + ". They need the model running in the page, so the calculator still runs the listing-feature model ($" + dep["CV MAE ($/night)"].toFixed(2) + ") until that is built.";
-    $("nn-head").textContent = nnT || nnI ? "Neural networks read text and photos well, but add little beyond the listing facts" : "Neural steps not run";
+    var clear = Object.keys(C.decision).filter(function (k) { return C.decision[k] === "clears noise"; });
+    var near = Object.keys(C.decision).filter(function (k) { return C.decision[k] === "within noise range"; });
+    var nz = "$" + C.noise_max.toFixed(2);
+    if (clear.length) parts.push("Steps that beat the largest gain pure noise produced (" + nz + "): " + clear.map(short).join(", ") + ". They need their models running in the page, so the calculator still runs the listing-feature model ($" + dep["CV MAE ($/night)"].toFixed(2) + ") until that is built.");
+    else parts.push("No text or photo step beat the largest gain that pure-noise columns produced in the overfitting check (" + nz + ")" + (near.length ? "; " + near.map(function (k) { return short(k).replace(/^\+ /, "").replace("text, classic NLP", "classic text").replace("text, neural network (bge-small)", "the language model").replace("photo, neural network (CLIP)", "the photo model"); }).join(" and ") + " came closest, so " + (near.length > 1 ? "they stay" : "it stays") + " a research result" : "") + ". The calculator runs the listing-feature model ($" + dep["CV MAE ($/night)"].toFixed(2) + "), which needs only what a host can type. The best research setup reaches $" + bestAll["CV MAE ($/night)"].toFixed(2) + ".");
+    $("nn-head").textContent = nnT || nnI ? "Text and photos add little beyond what the listing facts already say" : "Neural steps not run";
     $("nn-text").textContent = parts.join(" ");
     var NAMES = { asp_clean: "clean", asp_dirty: "dirty / smell", asp_noise: "noise", asp_quiet: "quiet", asp_spacious: "spacious", asp_small: "small", asp_location: "location",
       asp_transit: "transit (the T)", asp_view: "view", asp_luxury: "luxury / modern", asp_host: "host", asp_problem: "problems" };

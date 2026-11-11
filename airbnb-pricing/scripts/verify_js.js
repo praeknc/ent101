@@ -25,7 +25,7 @@ cases.forEach((c, i) => {
     const same = (Number.isNaN(a) && Number.isNaN(b)) || Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(a));
     return same ? null : `${E.featureNames[j]}: py ${v} js ${b}`;
   }).filter(Boolean);
-  if (diff.length) { bad++; if (bad <= 3) console.error(`case ${i}: ${diff.slice(0, 6).join("; ")}`); }
+  if (diff.length) { bad++; if (bad <= 40) console.error(`case ${i}: ${diff.slice(0, 8).join("; ")}`); }
   maxP = Math.max(maxP, Math.abs(Math.exp(E.predictLog(x)) / Math.exp(c.pred) - 1));
 });
 console.log(`Feature parity     ${cases.length - bad}/${cases.length} raw listings build identical features; max price difference ${(maxP * 100).toFixed(4)}%`);

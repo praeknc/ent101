@@ -176,14 +176,20 @@ fam_gain.round(1).to_frame("% of LightGBM split gain (full model)")
 md(r"""
 ## 3. Choosing the model for the calculator
 
-The decision rule is fixed in advance. A text or photo step is deployed only if it lowers the CV error by **at least $1 a night in at least 4 of 5 folds**, because that is clearly above the size of changes that pure-noise features produced in the overfitting check. A step that passes would also need its model running in the browser: about 30 MB for bge-small, and about 90 MB for CLIP.
+The decision rule is fixed in advance. The overfitting check added pure-noise columns to the same model: the largest gain one produced was about $1.07 a night (in 4 of 5 folds). So a text or photo step counts as a real gain only if it lowers the CV error by **more than the largest noise gain, in at least 4 of 5 folds**. A smaller gain is called *within the noise range*: possibly real, but not proven on 7,000 listings. A step that passes would still need its model running in the browser: about 30 MB for bge-small, and about 90 MB for CLIP.
 """)
 
 code(r"""
-def passes(r):
-    return r in ladder.index and ladder.loc[r, "change vs previous rung"] <= -1.0 and ladder.loc[r, "folds improved"] >= 4
+_ov = open(OUT / "data.js").read()
+NOISE_MAX = json.loads(_ov[_ov.index("{"): _ov.rindex("}") + 1])["overfit"]["noise"]["max_gain"]
+print(f"largest gain from a pure-noise feature: ${NOISE_MAX:.2f}")
+def verdict(r):
+    ch, folds = ladder.loc[r, "change vs previous rung"], ladder.loc[r, "folds improved"]
+    if ch < -NOISE_MAX and folds >= 4: return "clears noise"
+    if ch < 0 and folds >= 3: return "within noise range"
+    return "no gain"
 nn_steps = [r for r in [RUNGS[5], RUNGS[6]] if r in ladder.index]
-decision = {r: ("deploy" if passes(r) else "research only") for r in [RUNGS[4]] + nn_steps}
+decision = {r: verdict(r) for r in [RUNGS[4]] + nn_steps}
 DEPLOY = RUNGS[3]
 print("tabular model (rung 4):", f"${ladder.loc[DEPLOY, 'CV MAE ($/night)']:.2f}")
 print("best rung overall:", ladder["CV MAE ($/night)"].idxmin(), f"${ladder['CV MAE ($/night)'].min():.2f}")
@@ -192,7 +198,7 @@ for r, d in decision.items():
 """)
 
 md(r"""
-**Why the calculator runs the tabular model (rung 4).** Text and photos can't be scored for a new host's listing without running the language and image models in the page, and their measured gain is compared against the rule above. Rung 4 uses only what a host can type into a form. Its error is the honest expectation for the calculator.
+**Why the calculator runs the tabular model (rung 4).** Text and photos can't be scored for a new host's listing without running the language and image models in the page, and their measured gains are no larger than what noise produces (see the table above). Rung 4 uses only what a host can type into a form. Its error is the honest expectation for the calculator.
 """)
 
 md("## 4. Price range and the final fit")
@@ -266,11 +272,11 @@ def raw_row(L, i):
            "number_of_reviews": L["number_of_reviews"], "reviews_per_month": L["reviews_per_month"] if has_rev else np.nan,
            "number_of_reviews_ltm": min(L["number_of_reviews_ltm"], L["number_of_reviews"]), "calculated_host_listings_count": L["host_listings"],
            "availability_365": L["availability_365"], "license": lic, "accommodates": L["accommodates"], "bedrooms": L["bedrooms"], "beds": L["beds"],
-           "bathrooms_text": ("Half-bath" if L["baths"] == 0.5 else f"{L['baths']:g} {'shared ' if L['baths_shared'] else ''}baths"),
+           "bathrooms_text": (("Shared half-bath" if L["baths_shared"] else "Half-bath") if L["baths"] == 0.5 else f"{L['baths']:g} {'shared ' if L['baths_shared'] else ''}baths"),
            "property_type": REP_TYPE[L["property_group"]], "amenities": json.dumps(am), "host_is_superhost": "t" if L["superhost"] else "f",
            "host_identity_verified": "t" if L["identity_verified"] else "f", "description": "x" * L["desc_len"], "last_scraped": str(scraped.date()),
            "last_review": str((scraped - pd.Timedelta(days=L["days_since_review"])).date()) if has_rev else np.nan,
-           "first_review": str((scraped - pd.Timedelta(days=round(L["months_since_first_review"] * 365.25 / 12))).date()) if has_rev else np.nan,
+           "first_review": str((scraped - pd.Timedelta(days=int(np.floor(L["months_since_first_review"] * 365.25 / 12 + 0.5)))).date()) if has_rev else np.nan,
            "price_quote_checkin_date": str(ci.date()), "quarter": L["quarter"]}
     for s in SCORES:
         row[f"review_scores_{s}"] = L["scores"][s] if has_rev else np.nan
@@ -318,11 +324,11 @@ bundle["final"] = {
     "within_20": float(np.mean(np.abs(np.exp(oof - y) - 1) <= 0.2) * 100),
     "n_rows": int(len(y)), "n_hosts": int(len(set(groups))),
     "ladder": ladder.reset_index().rename(columns={"index": "rung", "rung": "rung"}).replace({np.nan: None}).round(4).to_dict(orient="records"),
-    "family_gain": fam_gain.round(2).to_dict(), "decision": decision, "deployed": DEPLOY,
+    "family_gain": fam_gain.round(2).to_dict(), "decision": decision, "deployed": DEPLOY, "noise_max": NOISE_MAX,
     "landmarks": ef.LANDMARKS, "zones": ZONES, "center": pf.CENTER, "host_bands": [b for b in pf.HOST_BANDS if np.isfinite(b)],
     "hood_merge": pf.HOOD_MERGE, "room_merge": pf.ROOM_MERGE,
     "hood_ll": {h: [round(float(r.latitude), 5), round(float(r.longitude), 5)] for h, r in hood_ll.iterrows()},
-    "supply": {q: s.values.round(4).tolist() for q, s in supply_q.items()},
+    "supply": {q: s.values.round(5).tolist() for q, s in supply_q.items()},
     "property_groups": PROPS, "amenities": {k: v for k, v in AMEN_LABEL.items()},
     "defaults": {"am_count": float(med["am_count"]), "desc_len": float(med["desc_len"]),
                  **{f"rs_{s}": float(med[f"rs_{s}"]) for s in SCORES}},

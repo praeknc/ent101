@@ -22,7 +22,9 @@ Predictive-analytics project that recommends a nightly price for a Boston Airbnb
 | `data/detailed/` | Detailed Inside Airbnb exports (Mar, Jun, Sep 2026; 90 columns) |
 | `src/enriched_features.py` | Phase 3 features: detailed attributes, amenity groups, landmarks, supply, local market price, optional Zillow loader |
 | `src/pricing_features.py` | Shared data pre-check, cleaning rules and feature builder used by both notebooks |
-| `scripts/verify_js.js`, `scripts/feature_parity.py` | Check that the browser builds the same features and predictions as Python |
+| `notebooks/boston_airbnb_overfitting_check.ipynb` | Learning curves, noise-feature test of the keep rule, nested selection, out-of-time test, tuning sensitivity, error by segment |
+| `notebooks/boston_airbnb_final_pipeline.ipynb` | The whole pipeline as one 7-rung ladder (basics → detailed attributes → location → listing age and night → classic text → bge-small text → CLIP photo), the decision rule, and the export of the final model used by the calculator |
+| `scripts/verify_js.js` | Checks that the browser builds the same features and predictions as Python (tree export and 40 raw-input cases in `scripts/final_cases.json`) |
 
 ## Reproduce
 
@@ -33,7 +35,8 @@ python scripts/build_quarterly_notebook.py
 cd notebooks && jupyter nbconvert --to notebook --execute --inplace boston_airbnb_pricing.ipynb && jupyter nbconvert --to notebook --execute --inplace boston_airbnb_quarterly.ipynb && cd ..
 python scripts/build_enriched_notebook.py
 cd notebooks && jupyter nbconvert --to notebook --execute --inplace boston_airbnb_phase3_enriched.ipynb && cd ..
-python scripts/feature_parity.py
+python scripts/build_text_notebook.py && python scripts/build_overfit_notebook.py && python scripts/build_final_notebook.py
+cd notebooks && export HF_HUB_DISABLE_XET=1 && for nb in boston_airbnb_team_merge boston_airbnb_phase3_text_market boston_airbnb_overfitting_check boston_airbnb_final_pipeline; do jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=7200 $nb.ipynb; done && cd ..
 node scripts/verify_js.js
 ```
 
@@ -89,7 +92,7 @@ Host-grouped 5-fold CV (LightGBM): Step 1 lowers error by $25.47/night (5 of 5 f
 | + review text (TF-IDF) | 85.25 | -0.90 | 3 of 5 |
 
 - Seasonality (Step 3) is not possible: Inside Airbnb calendar files no longer contain prices.
-- Pretrained embeddings (bge-small for text, CLIP for photos) are coded and photos are downloaded, but model weights come from `us.aws.cdn.hf.co` (and `cas-server.xethub.hf.co` / `cas-bridge.xethub.hf.co`), which the network policy blocks.
+- Pretrained embeddings (bge-small for text, CLIP for photos) run through fastembed; set `HF_HUB_DISABLE_XET=1` to download the weights. Embedding ~7,000 review sets on 4 CPUs takes about 1.5 hours; results are cached in `data/raw/cache/`.
 
 ## Team merge (teammate pipeline vs ours)
 
@@ -99,3 +102,20 @@ Host-grouped 5-fold CV (LightGBM): Step 1 lowers error by $25.47/night (5 of 5 f
 - Kept from their pipeline: months since first review (−$0.62, 4/5 folds) and, built on their stay-length column, the quoted night's day of week (−$1.65, 5/5). Merged CV MAE $84.74 vs $86.81.
 - Excluded: days until the quoted night (−$3.68) because it measures bookings (Spearman −0.68 with 30-day availability).
 - Neural network (MLP): out-of-sample MAE $110 vs LightGBM $96; an LightGBM + CatBoost + MLP average is within $1 of LightGBM alone.
+
+## Final pipeline (one ladder, LightGBM, host-grouped 5-fold CV, 7,039 listings)
+
+| Rung | CV MAE ($/night) | Change | Folds improved |
+|---|---|---|---|
+| 1. Listing basics + time and zone | 112.60 | | |
+| 2. + detailed attributes | 87.12 | −25.47 | 5 of 5 |
+| 3. + landmarks and supply | 86.81 | −0.31 | 4 of 5 |
+| 4. + listing age and night of week (**calculator model**) | **84.74** | −2.08 | 5 of 5 |
+| 5. + text, classic NLP | 83.70 | −1.04 | 5 of 5 |
+| 6. + text, neural network (bge-small) | 83.91 | +0.21 | 2 of 5 |
+| 7. + photo, neural network (CLIP) | 84.38 | +0.46 | 0 of 5 |
+| alt. rung 4 + neural text and photo, no classic text | 84.54 | −0.20 vs rung 4 | 3 of 5 |
+
+- Decision rule: a text or photo step counts only if it beats the largest gain a pure-noise column produced in the overfitting check ($1.07) in at least 4 of 5 folds. None did; classic text came closest (−$1.04).
+- The calculator runs rung 4: out-of-fold MAE $84.74, R² (log) 0.80, 80% range = prediction × 0.67 to × 1.49.
+- Overfitting check: train/held-out R² gap 0.18 for LightGBM but held-out error is the best of all models; 11 of 15 pure-noise features passed the old keep rule, so the nested estimate of the merged ideas is −$1.46 (not −$2.08); training on June only and testing on September gives $98.84 vs $87.28 when September is included.
