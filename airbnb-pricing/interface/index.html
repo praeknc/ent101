@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: a working price tool up top, then the project write-up as a numbered pipeline (data → features → models → verdict). */
+/* Layout: the price tool first, then one numbered pipeline (data → clean → features → models → honest test → time → text & photos → trust). */
 :root {
   --paper: #f2f4f6;
   --surface: #ffffff;
@@ -214,6 +214,27 @@ ol.reasons, ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; 
 footer { border-top: 1px solid var(--line); padding-block: 28px 48px; font-size: 0.92rem; color: var(--muted); display: grid; gap: 10px; }
 footer code { font-family: var(--font-data); font-size: 0.85rem; background: var(--surface); border: 1px solid var(--line); padding: 1px 5px; border-radius: 3px; }
 .loading { color: var(--muted); font-style: italic; }
+
+/* unified-page additions */
+fieldset { border: 0; border-top: 1px solid var(--line); margin: 0; padding: 14px 0 0; display: grid; gap: 14px; min-width: 0; }
+fieldset:first-of-type { border-top: 0; padding-top: 0; }
+legend { font-family: var(--font-display); font-weight: 700; font-size: 1rem; padding: 0 0 4px; }
+label.inline { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-display); font-size: 0.88rem; }
+.checks.dense { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 6px; }
+.checks.dense label { border-radius: 4px; }
+#rev-fields.off { opacity: 0.45; }
+.pipe { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+@media (max-width: 860px) { .pipe { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .pipe { grid-template-columns: minmax(0, 1fr); } }
+.pipe li { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); min-width: 0; }
+.pipe a { display: grid; gap: 4px; padding: 16px; text-decoration: none; color: var(--ink); height: 100%; }
+.pipe a:hover { background: color-mix(in oklab, var(--harbor) 7%, transparent); }
+.pipe .n { font-family: var(--font-data); font-size: 0.85rem; color: var(--brick); }
+.pipe strong { font-family: var(--font-display); font-size: 1.1rem; }
+.pipe .d { font-size: 0.88rem; color: var(--muted); line-height: 1.4; }
+ol.flow { margin: 0; padding-left: 1.2em; display: grid; gap: 10px; max-width: 66ch; }
+.fam-list { margin-top: 12px; font-size: 0.92rem; }
+.calc-in { gap: 22px; }
 </style>
 </head>
 <body>
@@ -226,16 +247,16 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
     </a>
     <nav aria-label="Sections">
       <a href="#calculator">Price my listing</a>
-      <a href="#data">Data</a>
-      <a href="#precheck">Pre-check</a>
-      <a href="#features">Features</a>
-      <a href="#models">Models</a>
-      <a href="#compare">Comparison</a>
-      <a href="#verdict">Verdict</a>
-      <a href="#quarterly">Quarterly</a>
-      <a href="#richer">Richer data</a>
-      <a href="#team">Team merge</a>
-      <a href="#trust">Trust</a>
+      <a href="#pipeline">Pipeline</a>
+      <a href="#s-data">Data</a>
+      <a href="#s-clean">Clean</a>
+      <a href="#s-features">Features</a>
+      <a href="#s-models">Models</a>
+      <a href="#s-eval">Evaluation</a>
+      <a href="#s-time">Time</a>
+      <a href="#s-nn">Text &amp; photos</a>
+      <a href="#s-trust">Trust</a>
+      <a href="#s-next">Next</a>
     </nav>
   </div>
 </header>
@@ -243,105 +264,116 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
 <main class="wrap" id="top">
 
 <section class="hero">
-  <span class="label">Predictive analytics project · Inside Airbnb, Boston · Sep 2026 snapshot, then four quarters</span>
+  <span class="label">Predictive analytics project · Inside Airbnb, Boston · Dec 2025 – Sep 2026</span>
   <h1>What should a Boston host charge <em>per night?</em></h1>
-  <p class="lede">I pre-checked the data, screened every variable for usefulness, redundancy and leakage, then trained five pricing models on one snapshot of Boston listing prices and compared them on hosts they had never seen. I then retrained the best one across a year of quarterly snapshots with time and zone features, and turned it into the calculator below. Describe your place and it recommends a nightly rate, with a likely range and the reasons behind it.</p>
-  <div class="facts" id="facts">
-    <div><span class="v num" id="f-rows">3,480</span><span class="k">priced listings used for training and testing</span></div>
-    <div><span class="v num" id="f-feat">48</span><span class="k">features kept after pre-checking the data and screening every variable</span></div>
-    <div><span class="v num">5</span><span class="k">methods compared: baseline, OLS, Lasso, random forest, boosting</span></div>
-    <div><span class="v num" id="f-mae">$86</span><span class="k" id="f-mae-k">average error of the best model per night</span></div>
+  <p class="lede">One pipeline, from raw Inside Airbnb exports to a price a host can use: check the data, build and screen features, compare a dozen model types under an honest test, follow prices through the year, and read listing text and photos with neural networks. The calculator below runs the final model in your browser.</p>
+  <div class="facts">
+    <div><span class="v num" id="f-rows">7,039</span><span class="k">priced listings (June + September 2026) used for the final model</span></div>
+    <div><span class="v num" id="f-feat">141</span><span class="k">features a host can describe, kept after screening</span></div>
+    <div><span class="v num" id="f-mae">$85</span><span class="k" id="f-mae-k">average error per night on hosts the model never saw</span></div>
+    <div><span class="v num" id="f-r2">0.78</span><span class="k">R² on log price (share of price variation explained)</span></div>
   </div>
 </section>
 
-<!-- ============ CALCULATOR ============ -->
+<!-- ================= CALCULATOR ================= -->
 <section class="block" id="calculator" aria-labelledby="calc-h">
   <div class="sec-head">
     <span class="label">The tool</span>
     <h2 id="calc-h">Price my listing</h2>
-    <p class="muted">The form opens with an example: a renovated two-bedroom in the South End. Change any field, or click the map to place your listing, and every model reprices it instantly in your browser. The headline price comes from the Phase 2 quarterly model; the Phase 1 snapshot models are shown for comparison.</p>
+    <p class="muted">The form opens with an example: a renovated two-bedroom in the South End. Change anything, or click the map to place your listing. The final model reprices it instantly, in your browser.</p>
   </div>
 
   <div class="calc">
     <form class="calc-in" id="calc-form" autocomplete="off">
-      <div class="field">
-        <label for="in-hood">Neighbourhood</label>
-        <select id="in-hood"></select>
-        <div class="map-wrap">
-          <svg id="map" role="img" aria-label="Map of Boston neighbourhoods shaded by median nightly price. Click to place your listing."></svg>
-          <div class="map-legend"><span>median $/night</span><span class="ramp" id="ramp"></span><span id="ramp-lo"></span>–<span id="ramp-hi"></span><span style="margin-left:auto">click to drop a pin</span></div>
-        </div>
-      </div>
-
-      <div class="field">
-        <span class="label">Room type</span>
-        <div class="seg" id="in-room" role="group" aria-label="Room type">
-          <button type="button" data-v="Entire home/apt" aria-pressed="true">Entire home</button>
-          <button type="button" data-v="Private room" aria-pressed="false">Private room</button>
-          <button type="button" data-v="Hotel room" aria-pressed="false">Hotel room</button>
-          <button type="button" data-v="Shared room" aria-pressed="false">Shared room</button>
-        </div>
-      </div>
-
-      <div class="field">
-        <span class="label">Quarter to price for</span>
-        <div class="seg" id="in-q" role="group" aria-label="Quarter">
-          <button type="button" data-v="2026Q2" aria-pressed="false">Jun 2026 (summer)</button>
-          <button type="button" data-v="2026Q3" aria-pressed="true">Sep 2026 (fall)</button>
-        </div>
-        <span class="hint">With only two priced quarters, the seasonal adjustment for a single listing is often small. Step 9 explains why.</span>
-      </div>
-
-      <div class="row-2">
+      <fieldset>
+        <legend>Where</legend>
         <div class="field">
-          <label for="in-beds">Bedrooms</label>
-          <select id="in-beds">
-            <option value="0">Studio</option><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6+</option>
-          </select>
+          <label for="in-hood">Neighbourhood</label>
+          <select id="in-hood"></select>
+          <div class="map-wrap">
+            <svg id="map" role="img" aria-label="Map of Boston neighbourhoods shaded by median nightly price. Click to place your listing."></svg>
+            <div class="map-legend"><span>median $/night</span><span class="ramp" id="ramp"></span><span id="ramp-lo"></span>–<span id="ramp-hi"></span><span style="margin-left:auto">click to drop a pin</span></div>
+          </div>
         </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>The place</legend>
         <div class="field">
-          <label for="in-min">Minimum nights</label>
-          <input type="number" id="in-min" min="1" max="365" value="2">
-          <span class="hint">28+ makes it a monthly rental</span>
+          <span class="label">Room type</span>
+          <div class="seg" id="in-room" role="group" aria-label="Room type">
+            <button type="button" data-v="Entire home/apt" aria-pressed="true">Entire home</button>
+            <button type="button" data-v="Private room" aria-pressed="false">Private room</button>
+            <button type="button" data-v="Hotel room" aria-pressed="false">Hotel room</button>
+            <button type="button" data-v="Shared room" aria-pressed="false">Shared room</button>
+          </div>
         </div>
-      </div>
-
-      <div class="field">
-        <label for="in-avail">Nights open per year: <span class="mono" id="avail-v">180</span></label>
-        <input type="range" id="in-avail" min="0" max="365" value="180">
-      </div>
-
-      <div class="row-3">
-        <div class="field"><label for="in-rev">Total reviews</label><input type="number" id="in-rev" min="0" value="25"></div>
-        <div class="field"><label for="in-rpm">Reviews / month</label><input type="number" id="in-rpm" min="0" step="0.1" value="1.5"></div>
-        <div class="field"><label for="in-ltm">Reviews, last 12 mo</label><input type="number" id="in-ltm" min="0" value="10"></div>
-      </div>
-
-      <div class="row-2">
-        <div class="field">
-          <label for="in-tenure">Already listed for</label>
-          <select id="in-tenure"><option value="0">New this quarter</option><option value="1">1 earlier quarter</option><option value="2">2 earlier quarters</option><option value="3" selected>3+ earlier quarters</option></select>
+        <div class="row-2">
+          <div class="field"><label for="in-prop">Property type</label><select id="in-prop"></select></div>
+          <div class="field"><label for="in-guests">Guests</label><input type="number" id="in-guests" min="1" max="16" value="4"></div>
         </div>
-        <div class="field"><label for="in-recent">Days since last review</label><input type="number" id="in-recent" min="0" max="1095" value="20"><span class="hint">ignored if you have no reviews</span></div>
-      </div>
-
-      <div class="row-2">
-        <div class="field"><label for="in-host">Listings you host</label><input type="number" id="in-host" min="1" value="1"></div>
-        <div class="field">
-          <label for="in-lic">Boston STR license</label>
-          <select id="in-lic"><option value="licensed" selected>Licensed (STR-…)</option><option value="exempt">Exempt</option><option value="none">None listed</option></select>
+        <div class="row-3">
+          <div class="field"><label for="in-beds-r">Bedrooms</label><select id="in-beds-r"><option value="0">Studio</option><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6+</option></select></div>
+          <div class="field"><label for="in-beds">Beds</label><input type="number" id="in-beds" min="0" max="20" value="2"></div>
+          <div class="field"><label for="in-baths">Bathrooms</label><select id="in-baths"><option value="0.5">Half</option><option value="1" selected>1</option><option value="1.5">1.5</option><option value="2">2</option><option value="2.5">2.5</option><option value="3">3+</option></select></div>
         </div>
-      </div>
+        <label class="inline"><input type="checkbox" id="in-shared-bath"> Bathroom is shared</label>
+      </fieldset>
 
-      <div class="field">
-        <span class="label">Your title mentions</span>
-        <div class="checks" id="in-kw">
-          <label><input type="checkbox" id="kw_luxury" checked> Modern / renovated</label>
-          <label><input type="checkbox" id="kw_parking"> Parking</label>
-          <label><input type="checkbox" id="kw_view"> View / rooftop</label>
-          <label><input type="checkbox" id="kw_amenities"> Gym / pool / concierge</label>
+      <fieldset>
+        <legend>Amenities</legend>
+        <div class="checks dense" id="in-am"></div>
+        <div class="field" style="margin-top:10px"><label for="in-amcount">Total amenities listed on Airbnb</label><input type="number" id="in-amcount" min="0" max="150" value="45"><span class="hint">Airbnb listings show 45 on the median; count every line, including basics.</span></div>
+        <div class="field"><span class="label">Your title mentions</span>
+          <div class="checks" id="in-kw">
+            <label><input type="checkbox" id="kw_luxury" checked> Modern / renovated</label>
+            <label><input type="checkbox" id="kw_parking"> Parking</label>
+            <label><input type="checkbox" id="kw_view"> View / rooftop</label>
+            <label><input type="checkbox" id="kw_amenities"> Gym / pool</label>
+          </div>
         </div>
-      </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Which night, which rules</legend>
+        <div class="row-2">
+          <div class="field">
+            <span class="label">Season</span>
+            <div class="seg" id="in-q" role="group" aria-label="Season">
+              <button type="button" data-v="2026Q2" aria-pressed="false">Summer (Jun)</button>
+              <button type="button" data-v="2026Q3" aria-pressed="true">Fall (Sep)</button>
+            </div>
+          </div>
+          <div class="field"><label for="in-dow">Night of the week</label><select id="in-dow"><option value="0">Monday</option><option value="1">Tuesday</option><option value="2">Wednesday</option><option value="3">Thursday</option><option value="4" selected>Friday</option><option value="5">Saturday</option><option value="6">Sunday</option></select></div>
+        </div>
+        <div class="row-2">
+          <div class="field"><label for="in-min">Minimum nights</label><input type="number" id="in-min" min="1" max="365" value="2"><span class="hint">28+ makes it a monthly rental</span></div>
+          <div class="field"><label for="in-lic">Boston STR license</label><select id="in-lic"><option value="licensed" selected>Licensed (STR-…)</option><option value="exempt">Exempt</option><option value="none">None listed</option></select></div>
+        </div>
+        <div class="field"><label for="in-avail">Nights open in the next year: <span class="mono" id="avail-v">180</span></label><input type="range" id="in-avail" min="0" max="365" value="180"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Track record and host</legend>
+        <label class="inline"><input type="checkbox" id="in-hasrev" checked> The listing has reviews</label>
+        <div class="row-3" id="rev-fields">
+          <div class="field"><label for="in-rev">Total reviews</label><input type="number" id="in-rev" min="1" value="25"></div>
+          <div class="field"><label for="in-rpm">Reviews / month</label><input type="number" id="in-rpm" min="0" step="0.1" value="1.5"></div>
+          <div class="field"><label for="in-ltm">Last 12 months</label><input type="number" id="in-ltm" min="0" value="10"></div>
+          <div class="field"><label for="in-score">Average score</label><input type="number" id="in-score" min="1" max="5" step="0.01" value="4.85"></div>
+          <div class="field"><label for="in-first">Months since first review</label><input type="number" id="in-first" min="0" value="24"></div>
+          <div class="field"><label for="in-last">Days since last review</label><input type="number" id="in-last" min="0" value="20"></div>
+        </div>
+        <div class="row-3">
+          <div class="field"><label for="in-host">Listings you host</label><input type="number" id="in-host" min="1" value="1"></div>
+          <div class="field"><label for="in-tenure">Live on Airbnb for</label><select id="in-tenure"><option value="0">This quarter only</option><option value="1">1 earlier quarter</option><option value="2">2 earlier quarters</option><option value="3" selected>3+ earlier quarters</option></select></div>
+          <div class="field"><label for="in-desc">Description length</label><input type="number" id="in-desc" min="0" max="1000" value="900"><span class="hint">characters</span></div>
+        </div>
+        <div class="checks">
+          <label><input type="checkbox" id="in-superhost"> Superhost</label>
+          <label><input type="checkbox" id="in-verified" checked> Identity verified</label>
+        </div>
+      </fieldset>
 
       <div class="btn-row">
         <button type="button" class="btn" data-preset="new">Example: brand-new studio</button>
@@ -353,578 +385,276 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
     <div class="calc-out" aria-live="polite">
       <div class="price-head">
         <span class="label" id="out-model-label">Recommended nightly price</span>
-        <div class="price-big num" id="out-price"><span class="loading">loading models…</span></div>
+        <div class="price-big num" id="out-price"><span class="loading">loading the model…</span></div>
         <div class="qprices" id="out-q"></div>
         <p class="out-note" id="out-range-note"></p>
         <svg class="range-bar" id="range-bar" viewBox="0 0 400 54" preserveAspectRatio="none" aria-hidden="true"></svg>
       </div>
-
       <div>
-        <h3>What each method says</h3>
-        <p class="out-note">The five Phase 1 snapshot models (Sep 2026, ★ = best of the five) next to the Phase 2 quarterly model that sets the price above.</p>
-        <svg id="out-models" viewBox="0 0 420 200" width="100%" role="img" aria-label="Predicted price by model"></svg>
+        <h3>What would change your price</h3>
+        <p class="out-note">The model re-run with one thing changed at a time; everything else stays as entered.</p>
+        <div class="drivers" id="out-levers"></div>
       </div>
-
-      <div>
-        <h3>Why this price</h3>
-        <p class="out-note">Lasso shows the biggest effects compared with an average Boston listing. Each effect assumes everything else stays the same.</p>
-        <div class="drivers" id="out-drivers"></div>
-      </div>
-
       <div>
         <h3>Same place, other neighbourhoods</h3>
-        <p class="out-note">Your listing re-priced by the quarterly model for the selected quarter, in each part of Boston, placed at that neighbourhood's typical location.</p>
+        <p class="out-note">Your listing re-priced in each part of Boston, placed at that neighbourhood's typical location.</p>
         <svg id="out-hoods" viewBox="0 0 420 520" width="100%" role="img" aria-label="Predicted price of this listing in each neighbourhood"></svg>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ============ 1. DATA ============ -->
-<section class="block" id="data" aria-labelledby="data-h">
+<!-- ================= PIPELINE OVERVIEW ================= -->
+<section class="block" id="pipeline" aria-labelledby="pipe-h">
   <div class="sec-head">
-    <span class="step-no">Step 1</span>
-    <h2 id="data-h">Which data the model needs</h2>
-    <p>The question is a regression problem: predict a number (price per night) from what a host knows about the listing. Three files from the Inside Airbnb Boston snapshot cover it.</p>
+    <span class="label">How it was built</span>
+    <h2 id="pipe-h">One pipeline, eight stages</h2>
+    <p>Each stage feeds the next, and each decision was tested on hosts the model had never seen. The numbers on each stage are the evidence behind it.</p>
   </div>
-  <div class="files">
-    <div class="file"><code>listings.csv</code><span class="label">4,368 rows · 19 columns</span><p>One row per listing: location, room type, house rules, review activity, host size, license and the advertised <strong>price</strong>, which is the target. This is the modelling table.</p></div>
-    <div class="file"><code>neighbourhoods.csv</code><span class="label">26 rows</span><p>The official neighbourhood list. Used to validate the <code>neighbourhood</code> column and to fix the order of the 26 one-hot columns.</p></div>
-    <div class="file"><code>neighbourhoods.geojson</code><span class="label">26 polygons</span><p>Neighbourhood boundaries. They draw the maps and the location picker above. Harbor Islands has no listings, so it is shown in grey.</p></div>
-  </div>
+  <ol class="pipe" id="pipe"></ol>
+</section>
 
+<!-- ================= 1. DATA ================= -->
+<section class="block" id="s-data" aria-labelledby="d-h">
+  <div class="sec-head"><span class="step-no">Stage 1</span><h2 id="d-h">Data</h2>
+    <p>The question is a regression problem: predict a nightly price from what a host knows about the listing. Everything comes from public sources, joined by listing ID, neighbourhood and date.</p></div>
+  <div class="panel">
+    <div class="table-scroll"><table>
+      <thead><tr><th>Source</th><th>What it holds</th><th>How it is used</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">listings.csv (4 quarters)</td><td>Summary of every listing: location, room type, rules, reviews, price. Dec 2025 and Mar 2026 have no prices.</td><td><span class="chip use">Core</span> Sep snapshot for the first models; all quarters for listing tenure</td></tr>
+        <tr><td class="mono">listings.csv.gz (detailed)</td><td>90 columns: guests, bedrooms, bathrooms, property type, amenities, review scores, description, photo link</td><td><span class="chip use">Core</span> June + September, the final model's main input</td></tr>
+        <tr><td class="mono">reviews.csv.gz</td><td>268,000 guest reviews with dates</td><td><span class="chip src">Text</span> 30 most recent reviews before each snapshot</td></tr>
+        <tr><td class="mono">Cover photos</td><td>One 320-px photo per listing (97% still online)</td><td><span class="chip src">Image</span> read by CLIP</td></tr>
+        <tr><td class="mono">neighbourhoods.geojson</td><td>Boundaries of Boston's neighbourhoods</td><td>Location checks, the map above</td></tr>
+        <tr><td class="mono">Zillow ZHVI</td><td>Monthly home values by neighbourhood</td><td><span class="chip drop">Tested</span> added nothing within one city</td></tr>
+        <tr><td class="mono">calendar.csv.gz</td><td>Availability for the next 365 nights</td><td><span class="chip drop">Not usable</span> prices removed by Inside Airbnb; bookings are a result of price</td></tr>
+      </tbody>
+    </table></div>
+  </div>
   <div class="grid-2">
     <div class="panel">
-      <h3>Column decisions</h3>
-      <p class="cap">Identifiers and personal data are dropped so the model learns about listings, not specific hosts.</p>
-      <div class="table-scroll">
-        <table>
-          <thead><tr><th>Column</th><th>Decision</th><th>Why</th></tr></thead>
-          <tbody>
-            <tr><td class="mono">price</td><td><span class="chip target">Target</span></td><td>Nightly USD. 882 listings have none (inactive) and are removed; prices above $2,000 (top 0.2%) are trimmed.</td></tr>
-            <tr><td class="mono">neighbourhood</td><td><span class="chip use">Feature</span></td><td>Location category, one-hot encoded</td></tr>
-            <tr><td class="mono">latitude, longitude</td><td><span class="chip use">Feature</span></td><td>Exact location, plus distance to Boston Common</td></tr>
-            <tr><td class="mono">room_type</td><td><span class="chip use">Feature</span></td><td>Entire home, private, hotel or shared room</td></tr>
-            <tr><td class="mono">minimum_nights</td><td><span class="chip use">Feature</span></td><td>Separates short stays from 28+ night monthly rentals</td></tr>
-            <tr><td class="mono">number_of_reviews, reviews_per_month, number_of_reviews_ltm</td><td><span class="chip use">Feature</span></td><td>Track record and demand. Missing reviews/month means 0.</td></tr>
-            <tr><td class="mono">calculated_host_listings_count</td><td><span class="chip use">Feature</span></td><td>Professional operator vs a single-listing host</td></tr>
-            <tr><td class="mono">availability_365</td><td><span class="chip use">Feature</span></td><td>How much of the year the calendar is open</td></tr>
-            <tr><td class="mono">name</td><td><span class="chip src">Feature source</span></td><td>Title text gives bedrooms ("2BR", "Studio") and amenity keywords</td></tr>
-            <tr><td class="mono">license</td><td><span class="chip src">Feature source</span></td><td>Licensed, exempt or none</td></tr>
-            <tr><td class="mono">id, host_id, host_profile_id, host_name</td><td><span class="chip drop">Drop</span></td><td>Identifiers and personal data</td></tr>
-            <tr><td class="mono">neighbourhood_group</td><td><span class="chip drop">Drop</span></td><td>Empty for every Boston row</td></tr>
-            <tr><td class="mono">last_review</td><td><span class="chip drop">Drop</span></td><td>A date that reviews_per_month already captures</td></tr>
-          </tbody>
-        </table>
-      </div>
+      <h3>Prices are right-skewed</h3>
+      <p class="cap">Nightly price on a log scale (Sep 2026). Models predict log(price), so errors count in percent, not dollars.</p>
+      <svg id="ch-hist" viewBox="0 0 480 200" width="100%" role="img" aria-label="Histogram of nightly prices"></svg>
     </div>
-    <div style="display:grid; gap:28px; min-width:0">
-      <div class="panel">
-        <h3>Prices are right-skewed</h3>
-        <p class="cap">Distribution of nightly price on a log scale. Modelling log(price) turns errors into percentages, so a $40 miss on a $100 room counts more than on a $900 house.</p>
-        <svg id="ch-hist" viewBox="0 0 480 200" width="100%" role="img" aria-label="Histogram of nightly prices"></svg>
-      </div>
-      <div class="panel">
-        <h3>Room type sets the level</h3>
-        <p class="cap">Median nightly price and number of listings.</p>
-        <svg id="ch-room" viewBox="0 0 480 150" width="100%" role="img" aria-label="Median price by room type"></svg>
-      </div>
+    <div class="panel">
+      <h3>Location sets the premium</h3>
+      <p class="cap">Median nightly price by neighbourhood (Sep 2026). The bar shows the middle half of prices.</p>
+      <svg id="ch-hood" viewBox="0 0 480 560" width="100%" role="img" aria-label="Median price by neighbourhood"></svg>
     </div>
-  </div>
-  <div class="panel">
-    <h3>Location sets the premium</h3>
-    <p class="cap">Median nightly price by neighbourhood. The bar marks the middle 50% of prices (25th to 75th percentile) and the dot marks the median.</p>
-    <svg id="ch-hood" viewBox="0 0 900 560" width="100%" role="img" aria-label="Median price by neighbourhood"></svg>
-  </div>
-  <div class="panel">
-    <h3>Data we would add next</h3>
-    <p>This summary file has no bedrooms, bathrooms, guest capacity, amenities or review scores. Titles give a bedroom count for only <span class="num" id="beds-share">39%</span> of listings. The detailed Inside Airbnb export (<span class="mono">listings.csv.gz</span>) and <span class="mono">calendar.csv</span> would add those attributes plus occupancy and seasonality. That is the biggest lever for accuracy.</p>
   </div>
 </section>
 
-<!-- ============ 2. PRE-CHECK ============ -->
-<section class="block" id="precheck" aria-labelledby="pre-h">
-  <div class="sec-head">
-    <span class="step-no">Step 2</span>
-    <h2 id="pre-h">Pre-check the data, then screen every variable</h2>
-    <p>Before any model sees the data, each row goes through quality checks, and each candidate variable is tested for its link to price, redundancy and leakage. Every rule comes from evidence in the data, and the same code runs for all four quarters.</p>
-  </div>
-  <div class="panel">
-    <h3>Data quality checks</h3>
-    <p class="cap">Rows affected in the Sep 2026 snapshot, and what was done. Checks that found nothing are listed too, because a clean result is also evidence.</p>
-    <div class="table-scroll"><table id="tbl-pre"><thead><tr><th>Check</th><th class="num">Rows</th><th>Action</th></tr></thead><tbody></tbody></table></div>
-  </div>
+<!-- ================= 2. CLEAN ================= -->
+<section class="block" id="s-clean" aria-labelledby="c-h">
+  <div class="sec-head"><span class="step-no">Stage 2</span><h2 id="c-h">Check, clean, and keep the answer out of the inputs</h2>
+    <p>Every row passes the same checks in every quarter. Then every column is asked one question: could it contain the price, or be a result of it? Those columns would make the model look accurate without being usable.</p></div>
   <div class="grid-2">
     <div class="panel">
-      <h3>Which variables relate to price</h3>
-      <p class="cap">Two rankings against log(price). <strong>Spearman</strong> captures steady up-or-down relationships; <strong>mutual information</strong> captures any shape. Colour shows the screening decision.</p>
+      <h3>Data quality checks</h3>
+      <p class="cap">Rows affected in the September snapshot. Checks that found nothing are listed too.</p>
+      <div class="table-scroll"><table id="tbl-pre"><thead><tr><th>Check</th><th class="num">Rows</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="panel">
+      <h3>Columns kept out of the model</h3>
+      <p class="cap">Each looked useful; each would leak the answer.</p>
+      <div class="table-scroll"><table id="tbl-leak"><thead><tr><th>Column</th><th>Why it is excluded</th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 3. FEATURES ================= -->
+<section class="block" id="s-features" aria-labelledby="f-h">
+  <div class="sec-head"><span class="step-no">Stage 3</span><h2 id="f-h">Build features, then screen them</h2>
+    <p>Candidates were ranked against price, checked for redundancy and for leakage, and then each new idea was added to the model on its own. An idea was kept only if it lowered the error on unseen hosts in at least 4 of 5 folds.</p></div>
+  <div class="grid-2">
+    <div class="panel">
+      <h3>Which listing basics relate to price</h3>
+      <p class="cap">Spearman captures steady up-or-down relationships; mutual information captures any shape. Crossed-out variables were dropped or replaced.</p>
       <div class="legend"><span><span class="swatch" style="background:var(--harbor)"></span>Spearman |r|</span><span><span class="swatch" style="background:var(--m-ols)"></span>Mutual information</span></div>
-      <svg id="ch-screen" viewBox="0 0 480 560" width="100%" role="img" aria-label="Variable ranking by correlation and mutual information"></svg>
+      <svg id="ch-screen" viewBox="0 0 480 560" width="100%" role="img" aria-label="Variable ranking"></svg>
     </div>
-    <div style="display:grid; gap:28px; min-width:0">
-      <div class="panel">
-        <h3>A leak in the evaluation</h3>
-        <p class="cap">"Listings the host runs" ranks first on mutual information but near zero on Spearman. That pattern suggests it acts as a host fingerprint: big operators price all their units alike. The test: keep each host's listings on one side of the split.</p>
-        <div class="qprices" id="leak"></div>
-        <p class="out-note" id="leak-note"></p>
-      </div>
+    <div class="panel">
+      <h3>What the final model reads</h3>
+      <p class="cap">141 features in eight families. Share of the final model's split gain.</p>
+      <svg id="ch-fam" viewBox="0 0 440 300" width="100%" role="img" aria-label="Feature families"></svg>
+      <ul class="plain fam-list">
+        <li><strong>Listing basics:</strong> room type, minimum nights, reviews, license, host size band, neighbourhood, coordinates, title keywords</li>
+        <li><strong>Detailed attributes:</strong> guests, bedrooms, beds, bathrooms (shared or private), 12 property groups, 30 amenity groups, 7 review scores, superhost</li>
+        <li><strong>Location context:</strong> distance to 14 demand drivers, listings within 300 m and 1 km, 8 zones</li>
+        <li><strong>Time:</strong> season, quarters live, days since the last review, months since the first review, night of the week priced</li>
+      </ul>
     </div>
   </div>
   <div class="panel">
-    <h3>Screening decisions</h3>
-    <div class="table-scroll"><table id="tbl-dec"><thead><tr><th>Variable</th><th>Decision</th><th>Evidence</th></tr></thead><tbody></tbody></table></div>
-  </div>
-  <div class="panel">
-    <h3>Did it help? Rerun with the same models</h3>
-    <p class="cap">Cross-validated error (RMSE on log price, host-grouped, lower is better) for each stage of the recheck.</p>
-    <div class="table-scroll"><table id="tbl-abl"><thead><tr><th>Pipeline</th><th class="num">Random forest</th><th class="num">Lasso</th></tr></thead><tbody></tbody></table></div>
-    <p class="out-note" id="abl-note" style="margin-top:8px"></p>
+    <h3>Every feature idea tested on its own</h3>
+    <p class="cap">Change in error ($/night) when the idea is added to the model, host-grouped 5-fold CV.</p>
+    <div class="table-scroll"><table id="tbl-ideas"><thead><tr><th>Idea</th><th class="num">Change</th><th class="num">Folds better</th><th>Decision</th></tr></thead><tbody></tbody></table></div>
   </div>
 </section>
 
-<!-- ============ 2. FEATURES ============ -->
-<section class="block" id="features" aria-labelledby="feat-h">
-  <div class="sec-head">
-    <span class="step-no">Step 3</span>
-    <h2 id="feat-h">Feature engineering</h2>
-    <p>Every feature is something a host can answer about their own listing, so the calculator asks for exactly the inputs the models were trained on. This is the final set, after the screening in Step 2.</p>
-  </div>
-  <div class="feat-list">
-    <div class="feat"><code>bedrooms, bedrooms_known</code><span>Parsed from the title ("3BR", "2 bedroom", "Studio" = 0). When the title doesn't say, the value is set to 1 and flagged.</span></div>
-    <div class="feat"><code>private_room, hotel_room</code><span>Room type as yes/no columns. Entire home is the reference; shared rooms count as private rooms.</span></div>
-    <div class="feat"><code>log_min_nights</code><span>log(1 + minimum nights). It also captures monthly rentals, so the separate 28+ night flag was dropped.</span></div>
-    <div class="feat"><code>log_reviews, reviews_per_month, reviews_ltm</code><span>Total, monthly-rate and last-12-month reviews</span></div>
-    <div class="feat"><code>host_size_band</code><span>Host size in bands: 1 | 2-3 | 4-10 | 11-50 | 51+ listings. The exact count acted as a host fingerprint.</span></div>
-    <div class="feat"><code>availability_365</code><span>Nights the calendar is open in the next year</span></div>
-    <div class="feat"><code>licensed, exempt</code><span>Status of the Boston short-term-rental license</span></div>
-    <div class="feat"><code>dist_km, latitude, longitude</code><span>Distance to Boston Common and raw coordinates</span></div>
-    <div class="feat"><code>kw_parking, kw_luxury, kw_view, kw_amenities</code><span>Amenity and positioning keywords in the title</span></div>
-    <div class="feat"><code>nb_* (<span id="n-hoods">24</span>)</code><span>One-hot neighbourhood. Leather District counts as Chinatown.</span></div>
-  </div>
-  <div class="panel">
-    <h3>Evaluation set-up</h3>
-    <ul class="plain">
-      <li><strong>80/20 split by host:</strong> <span class="num" id="n-train">2,861</span> listings train the models and <span class="num" id="n-test">616</span> listings from <em>other hosts</em> are held back. No host appears on both sides. The test set is scored only once, at the end.</li>
-      <li><strong>Host-grouped 5-fold cross-validation</strong> on the training set for tuning and to check that results are stable.</li>
-      <li><strong>Metrics in dollars:</strong> MAE (average $ off per night), RMSE (penalises big misses), R² on log price, MAPE, and the share of listings priced within ±20%.</li>
-    </ul>
-  </div>
-</section>
-
-<!-- ============ 3. MODELS ============ -->
-<section class="block" id="models" aria-labelledby="models-h">
-  <div class="sec-head">
-    <span class="step-no">Step 4</span>
-    <h2 id="models-h">Five ways to predict a price</h2>
-    <p>The methods range from a simple rule of thumb to ensembles of hundreds of trees. Each one makes a different assumption about how price relates to the features.</p>
-  </div>
+<!-- ================= 4. MODELS ================= -->
+<section class="block" id="s-models" aria-labelledby="m-h">
+  <div class="sec-head"><span class="step-no">Stage 4</span><h2 id="m-h">Compare model types</h2>
+    <p>Each method makes a different assumption about how price relates to the features. All were trained on the same 141 features and scored on the same unseen hosts.</p></div>
   <div class="models">
-    <div class="model" style="--c: var(--m-base)">
-      <h3>Baseline</h3>
-      <p>The rule of thumb: charge the median of listings with the same neighbourhood and room type. Any real model has to beat it.</p>
-      <div class="formula">price = median(hood, room)</div>
-      <dl><dt>Learns</dt><dd>one median per area and room type</dd><dt>Limit</dt><dd>Ignores everything else</dd></dl>
-    </div>
-    <div class="model" style="--c: var(--m-ols)">
-      <h3>Linear regression</h3>
-      <p>Ordinary least squares. log(price) is a weighted sum of features, and each weight reads as a percentage effect on price.</p>
-      <div class="formula">log p = β₀ + Σ βᵢxᵢ</div>
-      <dl><dt>Strength</dt><dd>Transparent, fast</dd><dt>Limit</dt><dd>No interactions or curves</dd></dl>
-    </div>
-    <div class="model" style="--c: var(--m-lasso)">
-      <h3>Lasso regression</h3>
-      <p>The same linear model with an L1 penalty, which shrinks weak features to exactly zero. Cross-validation picked α = <span class="num" id="alpha">0.001</span>.</p>
-      <div class="formula">min ‖y − Xβ‖² + α Σ|βᵢ|</div>
-      <dl><dt>Strength</dt><dd>Selects features itself</dd><dt>Zeroed</dt><dd id="zeroed">4 features</dd></dl>
-    </div>
-    <div class="model" style="--c: var(--m-rf)">
-      <h3>Random forest</h3>
-      <p>150 decision trees, each grown on a bootstrap sample with a random subset of features. The forest averages their answers.</p>
-      <div class="formula">p = mean(tree₁ … tree₁₅₀)</div>
-      <dl><dt>Tuned</dt><dd id="rf-params">depth 14, leaf 2</dd><dt>Strength</dt><dd>Interactions, stable</dd></dl>
-    </div>
-    <div class="model" style="--c: var(--m-gb)">
-      <h3>Gradient boosting</h3>
-      <p>Small trees built one after another, each correcting what the previous ones got wrong.</p>
-      <div class="formula">p = f₀ + η Σ treeₖ</div>
-      <dl><dt>Tuned</dt><dd id="gb-params">600 trees, depth 4</dd><dt>Limit</dt><dd>Sensitive to tuning</dd></dl>
-    </div>
+    <div class="model" style="--c: var(--m-base)"><h3>Rule of thumb</h3><p>Median price of listings with the same neighbourhood and room type. Every model has to beat it.</p></div>
+    <div class="model" style="--c: var(--m-lasso)"><h3>Linear, ridge, Lasso</h3><p>Price as a weighted sum of features. Ridge and Lasso shrink weights; Lasso can set them to zero. Clear, but no interactions.</p></div>
+    <div class="model" style="--c: var(--muted)"><h3>Decision tree (CART)</h3><p>One tree of yes/no questions. Easy to read, but unstable and quick to overfit.</p></div>
+    <div class="model" style="--c: var(--m-rf)"><h3>Random forest</h3><p>Hundreds of trees on random samples, averaged. Robust, captures interactions.</p></div>
+    <div class="model" style="--c: var(--m-gb)"><h3>Gradient boosting</h3><p>Small trees built in sequence, each fixing the last one's errors. LightGBM and CatBoost are fast versions.</p></div>
+    <div class="model" style="--c: var(--m-ols)"><h3>Neural network</h3><p>A multilayer perceptron: layers of weighted sums with non-linear steps, trained by gradient descent.</p></div>
+  </div>
+  <div class="panel">
+    <h3>Results on unseen hosts</h3>
+    <p class="cap">Host-grouped 80/20 split. Training R² vs held-out R² shows how much each model memorises; the held-out columns are what matter.</p>
+    <div class="table-scroll"><table id="tbl-models"><thead><tr><th>Model</th><th class="num">Training R²</th><th class="num">Held-out R²</th><th class="num">Gap</th><th class="num">Held-out MAE</th></tr></thead><tbody></tbody></table></div>
+    <p class="out-note" id="models-note" style="margin-top:8px"></p>
+  </div>
+  <div class="panel">
+    <h3>Features matter more than the algorithm</h3>
+    <p class="cap">Same listings (September, with reviews), host-grouped CV error: a compact 48-feature set vs the full set, each with two boosting models.</p>
+    <div class="table-scroll"><table id="tbl-h2h"><thead><tr><th>Features</th><th>Model</th><th class="num">CV MAE</th></tr></thead><tbody></tbody></table></div>
   </div>
 </section>
 
-<!-- ============ 4. COMPARISON ============ -->
-<section class="block" id="compare" aria-labelledby="cmp-h">
-  <div class="sec-head">
-    <span class="step-no">Step 5</span>
-    <h2 id="cmp-h">How the methods compare</h2>
-    <p>All five were scored on the same <span class="num" id="n-test2">616</span> held-out listings, from hosts that no model saw during training or tuning.</p>
-  </div>
-  <div class="panel">
-    <div class="table-scroll">
-      <table id="tbl-metrics">
-        <thead><tr><th>Model</th><th class="num">CV RMSE (log)</th><th class="num">Test MAE</th><th class="num">Test RMSE</th><th class="num">R² (log)</th><th class="num">MAPE</th><th class="num">Within ±20%</th><th class="num">Fit time</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </div>
+<!-- ================= 5. EVALUATION ================= -->
+<section class="block" id="s-eval" aria-labelledby="e-h">
+  <div class="sec-head"><span class="step-no">Stage 5</span><h2 id="e-h">Test the way the tool will be used</h2>
+    <p>Large hosts run up to 87 listings with similar pricing. A random split puts some of a host's listings in training and the rest in test, so the model partly remembers the host. A new user is always a new host, so every result on this page splits by host.</p></div>
   <div class="grid-2">
     <div class="panel">
-      <h3>Average error per night</h3>
-      <p class="cap">Test MAE in dollars. Lower is better.</p>
-      <svg id="ch-mae" viewBox="0 0 480 220" width="100%" role="img" aria-label="Test MAE by model"></svg>
+      <h3>Random split vs split by host</h3>
+      <p class="cap">R² on log price, 5-fold CV, 48-feature version of each model.</p>
+      <div class="legend"><span><span class="swatch" style="background:var(--muted)"></span>Random split</span><span><span class="swatch" style="background:var(--harbor)"></span>Split by host</span></div>
+      <svg id="ch-stress" viewBox="0 0 480 320" width="100%" role="img" aria-label="Random vs host-grouped split"></svg>
     </div>
     <div class="panel">
-      <h3>Stable across folds</h3>
-      <p class="cap">RMSE on log price in each of the 5 host-grouped cross-validation folds. The black tick is the mean. Overlapping clusters mean the models are statistically tied.</p>
-      <svg id="ch-cv" viewBox="0 0 480 220" width="100%" role="img" aria-label="Cross-validation scores by model"></svg>
-    </div>
-  </div>
-  <div class="grid-2">
-    <div class="panel">
-      <h3>Predicted vs actual</h3>
-      <p class="cap">Each dot is a test listing (log axes). The closer to the diagonal, the better.</p>
-      <div class="tabs" id="scatter-tabs"></div>
-      <svg id="ch-scatter" viewBox="0 0 440 340" width="100%" role="img" aria-label="Predicted versus actual price"></svg>
-    </div>
-    <div class="panel">
-      <h3>What drives price</h3>
-      <p class="cap">Permutation importance for the random forest: how much test error rises when a feature is shuffled.</p>
-      <svg id="ch-imp" viewBox="0 0 440 360" width="100%" role="img" aria-label="Feature importance"></svg>
-    </div>
-  </div>
-  <div class="panel">
-    <h3>Why the methods differ</h3>
-    <div class="table-scroll">
-      <table>
-        <thead><tr><th></th><th>Linear regression</th><th>Lasso</th><th>Random forest</th><th>Gradient boosting</th></tr></thead>
-        <tbody>
-          <tr><th>Shape</th><td>Straight-line, additive</td><td>Straight-line, additive</td><td>Any shape, with interactions</td><td>Any shape, with interactions</td></tr>
-          <tr><th>Feature selection</th><td>None</td><td>Automatic (zeroes weak features)</td><td>Implicit, through splits</td><td>Implicit, through splits</td></tr>
-          <tr><th>Overfitting control</th><td>None</td><td>α penalty</td><td>Bagging, leaf size, depth</td><td>Learning rate, depth, subsampling</td></tr>
-          <tr><th>Explains itself</th><td>Coefficient = % effect</td><td>Same, with fewer terms</td><td>Feature importance</td><td>Feature importance</td></tr>
-          <tr><th>Tuning effort</th><td>None</td><td>One value (α)</td><td>Low</td><td>High</td></tr>
-        </tbody>
-      </table>
+      <h3>What the honest test changed</h3>
+      <ul class="plain">
+        <li>Every model loses <span class="num" id="e-opt"></span> R² on average under the host split.</li>
+        <li>The host's listing count acted as a host fingerprint (highest mutual information, near-zero correlation). It was replaced by five size bands.</li>
+        <li>Days until the quoted night lowered the error more than any feature, but it measures how booked-up a listing is, a result of its price. It was excluded.</li>
+        <li>Listings without reviews stay in the data: a pricing tool has to serve new hosts.</li>
+      </ul>
     </div>
   </div>
 </section>
 
-<!-- ============ 5. VERDICT ============ -->
-<section class="block" id="verdict" aria-labelledby="ver-h">
-  <div class="sec-head">
-    <span class="step-no">Step 6</span>
-    <h2 id="ver-h">Which method fits pricing best</h2>
-  </div>
-  <div class="verdict">
-    <div class="call">
-      <span class="label">Recommendation</span>
-      <h3>Random forest sets the price; Lasso explains it.</h3>
-      <ol class="reasons">
-        <li><strong>Honest testing changed the picture.</strong> Split at random, the tree models looked far ahead. Once each host's listings stay on one side, the four learned models are within cross-validation noise of each other (CV RMSE <span class="num" id="v-cv-range"></span>).</li>
-        <li><strong>Tie-break on stability.</strong> Among the tied models, random forest varies least from fold to fold. On hosts it never saw, it also has the lowest dollar error (<span class="num" id="v-rf-mae">$104</span>/night) and, with gradient boosting, the highest R².</li>
-        <li><strong>Every learned model beats the rule of thumb.</strong> The forest has <span class="num" id="v-improve">29%</span> less error than copying the neighbourhood median.</li>
-        <li><strong>Lasso is kept for explanation.</strong> It is only slightly less accurate, and its weights read as plain statements such as "a private room is about 49% cheaper". The calculator uses it for "Why this price".</li>
-      </ol>
-    </div>
-    <div class="panel">
-      <h3>Linear vs Lasso: why they tie</h3>
-      <p>After screening, 43 features and about 2,900 training listings leave little overfitting for Lasso to fix, so the best α is tiny and the two models score almost the same. Lasso still removed <span id="v-zeroed">3</span> neighbourhood dummies whose prices match the city average. The model gets simpler and no accuracy is lost.</p>
-    </div>
-  </div>
-  <div class="panel">
-    <h3>Limits and next steps</h3>
-    <ul class="plain">
-      <li><strong>Asking price, not booked price.</strong> The models learn what hosts ask. Adding calendar occupancy would let us optimise revenue instead of matching the market.</li>
-      <li><strong>Missing property detail.</strong> Bathrooms, capacity, amenities and review scores from the detailed export would cut the error further. Today, fewer than half of new-host listings are priced within ±20%.</li>
-      <li><strong>Host effects can't transfer.</strong> Much of the price variation is "who the host is". A new host can't be priced from that, which is why honest error is higher than a random split suggests.</li>
-      <li><strong>One snapshot.</strong> Boston prices peak around graduation, the marathon and fall foliage. A calendar-based model would add date effects.</li>
-      <li><strong>Retrain each quarter</strong> on the new Inside Airbnb release.</li>
-    </ul>
-  </div>
-</section>
-
-<!-- ============ PHASE 2 ============ -->
-<div class="phase" id="quarterly"><span class="label">Phase 2</span><h2>A year of snapshots</h2></div>
-
-<section class="block" aria-labelledby="q1-h" style="border-top:0; padding-top:24px">
-  <div class="sec-head">
-    <span class="step-no">Step 7</span>
-    <h3 id="q1-h" style="font-size:var(--step-3)">Four quarterly snapshots, two with prices</h3>
-    <p>Phase 1 used a single snapshot (September 2026). Prices move through the year, so Phase 2 stacks four quarterly Inside Airbnb snapshots. Inside Airbnb published no prices for December and March, so those two quarters can't be scored. They still count: they show how many earlier quarters each listing was already live (its <em>tenure</em>), and the model prices their listing stock.</p>
-  </div>
+<!-- ================= 6. TIME ================= -->
+<section class="block" id="s-time" aria-labelledby="t-h">
+  <div class="sec-head"><span class="step-no">Stage 6</span><h2 id="t-h">Follow prices through the year</h2>
+    <p>Four quarterly snapshots, two with prices. A model trained on June alone was then asked to price September.</p></div>
   <div class="qcards" id="qcards"></div>
-  <p class="muted" style="font-size:0.92rem">The March scrape is partial: about half the usual listings, skewed toward entire homes. Its higher predicted median reflects that mix, not a change in the market.</p>
-</section>
-
-<section class="block" aria-labelledby="q2-h">
-  <div class="sec-head">
-    <span class="step-no">Step 8</span>
-    <h3 id="q2-h" style="font-size:var(--step-3)">Train on June, apply to the year</h3>
-    <p>On June data alone, random forest and gradient boosting tie (CV RMSE <span class="num" id="q-cv-rf"></span> vs <span class="num" id="q-cv-gb"></span>), so the Phase 1 winner stays. Trained on June only, it then prices September listings it has never seen. As in Phase 1, listings are split <strong>by host</strong>, so a test host's June and September listings are both kept out of training.</p>
-  </div>
   <div class="grid-2">
     <div class="panel">
-      <h3>Error on held-out listings</h3>
-      <p class="cap">Test MAE in $/night, scored separately on June and September. Every model is a random forest with the same settings; only the training data and features change. ★ = lowest error averaged over both quarters.</p>
-      <div class="legend"><span><span class="swatch" style="background:var(--jun)"></span>June test listings</span><span><span class="swatch" style="background:var(--sep)"></span>September test listings</span></div>
-      <svg id="ch-exp" viewBox="0 0 480 330" width="100%" role="img" aria-label="Test error by experiment and quarter"></svg>
+      <h3>A summer model over-prices the fall</h3>
+      <p class="cap">Random forest on held-out hosts. Bias = median of predicted ÷ actual − 1.</p>
+      <div class="table-scroll"><table id="tbl-time"><thead><tr><th>Trained on</th><th class="num">Sep MAE</th><th class="num">Sep bias</th></tr></thead><tbody></tbody></table></div>
+      <p class="out-note" style="margin-top:8px">Pooling both quarters, with the season, tenure and zones as features, is what the final model does.</p>
     </div>
     <div class="panel">
-      <h3>Over- or under-pricing</h3>
-      <p class="cap">Median of predicted ÷ actual − 1. Zero means unbiased. The June-only model over-prices September: the market cooled after the summer peak.</p>
-      <svg id="ch-bias" viewBox="0 0 480 330" width="100%" role="img" aria-label="Bias by experiment and quarter"></svg>
-    </div>
-  </div>
-  <div class="panel">
-    <div class="table-scroll">
-      <table id="tbl-exp"><thead><tr><th>Experiment</th><th>Training data</th><th>Features</th><th class="num">MAE Jun</th><th class="num">MAE Sep</th><th class="num">Bias Sep</th><th class="num">Within ±20% Sep</th></tr></thead><tbody></tbody></table>
-    </div>
-  </div>
-</section>
-
-<section class="block" aria-labelledby="q3-h">
-  <div class="sec-head">
-    <span class="step-no">Step 9</span>
-    <h3 id="q3-h" style="font-size:var(--step-3)">Time and zone features, and how the weights move</h3>
-    <p><strong>Time:</strong> a quarter indicator, tenure (earlier quarters live, 0-3) and days since the last review. <strong>Zone:</strong> distance rings around Boston Common (under 2 km, 2-5 km, over 5 km) and 8 geographic clusters fitted on all four quarters, which cut across neighbourhood lines.</p>
-  </div>
-  <div class="grid-2">
-    <div class="panel">
-      <h3>Weight of each parameter, June vs September</h3>
-      <p class="cap">A Lasso fitted on each quarter separately, shown as the % price effect of each feature. Read minimum nights and monthly together, because they overlap.</p>
-      <div class="legend"><span><span class="swatch" style="background:var(--jun)"></span>Jun 2026</span><span><span class="swatch" style="background:var(--sep)"></span>Sep 2026</span></div>
+      <h3>Weights move between seasons</h3>
+      <p class="cap">% price effect of each feature, Lasso fitted on each quarter separately.</p>
+      <div class="legend"><span><span class="swatch" style="background:var(--jun)"></span>June</span><span><span class="swatch" style="background:var(--sep)"></span>September</span></div>
       <svg id="ch-weights" viewBox="0 0 480 520" width="100%" role="img" aria-label="Lasso weights by quarter"></svg>
     </div>
-    <div style="display:grid; gap:28px; min-width:0">
-      <div class="panel">
-        <h3>What the pooled model uses</h3>
-        <p class="cap">Permutation importance of the final quarterly model. The quarter indicator and zones are used, but room type and minimum stay still dominate.</p>
-        <svg id="ch-qimp" viewBox="0 0 440 400" width="100%" role="img" aria-label="Feature importance of the quarterly model"></svg>
-      </div>
-      <div class="panel">
-        <h3>Zone prices by quarter</h3>
-        <p class="cap">Median listed price in each geographic zone.</p>
-        <div class="table-scroll"><table id="tbl-zones"><thead><tr><th>Zone (main neighbourhoods)</th><th class="num">Jun</th><th class="num">Sep</th><th class="num">Change</th></tr></thead><tbody></tbody></table></div>
-      </div>
-    </div>
-  </div>
-  <div class="verdict">
-    <div class="call">
-      <span class="label">Phase 2 result</span>
-      <h3 id="q-headline">Pooling the quarters with time and zone cuts September error.</h3>
-      <ol class="reasons">
-        <li><strong>A snapshot model goes stale.</strong> The June-only model over-prices September by <span class="num" id="q-bias-jo"></span> and its error rises to <span class="num" id="q-mae-jo"></span>/night.</li>
-        <li><strong>Using every quarter helps most.</strong> Pooling June and September does most of the work. Time features, zones and 2× weight on the newer quarter each trim a little more, reaching <span class="num" id="q-mae-fin"></span>/night on September and the lowest error averaged over both quarters.</li>
-        <li><strong>Why not September only?</strong> A September-only model is marginally better on September (<span class="num" id="q-mae-sep"></span>) but one of the worst on June (<span class="num" id="q-mae-sepjun"></span>). A model that prices any quarter has to be judged on all of them.</li>
-        <li><strong>Weights move between quarters.</strong> The license premium shrinks from summer to fall, and Downtown, Fenway and "view" listings hold their value better. One fixed set of weights can't serve the whole year.</li>
-        <li><strong>Some bias remains</strong> (about <span class="num" id="q-bias-fin"></span> on September). With only two priced quarters, the model has one seasonal contrast to learn from. Priced December and March files would turn the quarter flag into a full season feature.</li>
-      </ol>
-    </div>
-    <div class="panel">
-      <h3>How to run it each quarter</h3>
-      <ul class="plain">
-        <li>Drop the new snapshot into <span class="mono">data/quarterly/</span>.</li>
-        <li>Re-run both notebooks: the snapshot study, then the quarterly study.</li>
-        <li>The calculator picks up the refitted model from <span class="mono">interface/data.js</span>.</li>
-      </ul>
-    </div>
   </div>
 </section>
 
-<!-- ============ PHASE 3 ============ -->
-<div class="phase" id="richer"><span class="label">Phase 3</span><h2>Richer data before deeper models</h2></div>
-
-<section class="block" aria-labelledby="p3a-h" style="border-top:0; padding-top:24px">
-  <div class="sec-head">
-    <span class="step-no">Step 10</span>
-    <h3 id="p3a-h" style="font-size:var(--step-3)">Detailed attributes, then location context</h3>
-    <p>The summary file can't say how big a place is or what it offers. Phase 3 adds the detailed Inside Airbnb exports for June and September. <strong>Step 1</strong> adds guest capacity, bedrooms, beds, bathrooms, property type, 30 amenity groups and review scores. <strong>Step 2</strong> adds distances to 14 demand drivers (airport, convention center, stadium, universities, hospitals), nearby supply, and the median price of the nearest listings from other hosts. Every step is scored on the same host-grouped test set with four models.</p>
-  </div>
+<!-- ================= 7. TEXT & PHOTOS ================= -->
+<section class="block" id="s-nn" aria-labelledby="n-h">
+  <div class="sec-head"><span class="step-no">Stage 7</span><h2 id="n-h">Richer data, then neural networks for text and photos</h2>
+    <p>The whole improvement path, replayed on one setup: LightGBM, 7,039 listings, host-grouped 5-fold CV. Each rung adds one group of inputs to everything above it.</p></div>
   <div class="grid-2">
     <div class="panel">
-      <h3>Error at each step</h3>
-      <p class="cap">Test MAE in $/night on <span class="num" id="p3-ntest"></span> listings from hosts no model saw. Lower is better.</p>
-      <div class="legend" id="p3-legend"></div>
-      <svg id="ch-p3" viewBox="0 0 480 300" width="100%" role="img" aria-label="Test error by step and model"></svg>
+      <h3>The ladder</h3>
+      <p class="cap">Cross-validated error per night. Lower is better.</p>
+      <svg id="ch-ladder" viewBox="0 0 480 340" width="100%" role="img" aria-label="Error as each step is added"></svg>
     </div>
     <div class="panel">
-      <h3>Is each step's gain real?</h3>
-      <p class="cap">LightGBM, host-grouped 5-fold cross-validation over all priced rows. The local-market feature is rebuilt inside every fold from training rows only.</p>
-      <div class="table-scroll"><table id="tbl-p3cv"><thead><tr><th>Step</th><th class="num">CV MAE</th><th class="num">Change vs previous</th><th class="num">Folds improved</th></tr></thead><tbody></tbody></table></div>
+      <h3>How the neural networks are used</h3>
+      <ol class="flow">
+        <li><strong>Read.</strong> <span class="mono">bge-small-en-v1.5</span> (33M parameters) turns each description, and the 30 most recent reviews, into 384 numbers. <span class="mono">CLIP ViT-B/32</span> turns the cover photo into 512.</li>
+        <li><strong>Freeze.</strong> The networks are used as pretrained, not retrained: about 5,600 prices per training fold would mostly teach them to memorise.</li>
+        <li><strong>Compress.</strong> PCA, fitted on the training fold only, keeps 16 numbers per source.</li>
+        <li><strong>Combine.</strong> LightGBM reads them next to the 141 listing features. Words about price are removed from reviews first, because comments on value are a reaction to the price.</li>
+      </ol>
     </div>
   </div>
   <div class="panel">
-    <div class="table-scroll">
-      <table id="tbl-p3"><thead><tr><th>Step</th><th class="num">Features</th><th class="num">Lasso</th><th class="num">Random forest</th><th class="num">LightGBM</th><th class="num">CatBoost</th><th class="num">Best R² (log)</th></tr></thead><tbody></tbody></table>
-    </div>
-  </div>
-  <div class="grid-2">
-    <div class="panel">
-      <h3>What the best model uses</h3>
-      <p class="cap">Permutation importance of LightGBM on the full feature set, summed by feature family.</p>
-      <svg id="ch-p3fam" viewBox="0 0 440 320" width="100%" role="img" aria-label="Importance by feature family"></svg>
-    </div>
-    <div style="display:grid; gap:28px; min-width:0">
-      <div class="panel">
-        <h3>New listings gain as much</h3>
-        <p class="cap">Test MAE for listings with and without review scores.</p>
-        <div class="table-scroll"><table id="tbl-p3cold"><thead><tr><th>Listings</th><th class="num">Count</th><th class="num">Phase 2 features</th><th class="num">Steps 1-2</th><th class="num">Better by</th></tr></thead><tbody></tbody></table></div>
-      </div>
-      <div class="panel">
-        <h3>Columns kept out</h3>
-        <p class="cap">They contain the price or result from it.</p>
-        <div class="table-scroll"><table id="tbl-p3leak"><thead><tr><th>Column</th><th>Evidence</th><th>Decision</th></tr></thead><tbody></tbody></table></div>
-      </div>
-    </div>
+    <div class="table-scroll"><table id="tbl-ladder"><thead><tr><th>Rung</th><th class="num">Features</th><th class="num">CV MAE</th><th class="num">Change</th><th class="num">Folds better</th><th class="num">R² (log)</th></tr></thead><tbody></tbody></table></div>
   </div>
   <div class="verdict">
     <div class="call">
-      <span class="label">Phase 3 result so far</span>
-      <h3 id="p3-headline">Better data beat a better algorithm.</h3>
-      <ol class="reasons">
-        <li><strong>Step 1 is the big win.</strong> Describing what is being rented cuts the test error by 18-27% for every model, and LightGBM improves in every cross-validation fold.</li>
-        <li><strong>Step 2 adds little.</strong> Landmarks give a tiny gain. The neighbours' median price adds nothing, because the model already knows location from the neighbourhood and coordinates.</li>
-        <li><strong>Gradient boosting now leads.</strong> With 100+ informative features, LightGBM pulls ahead of random forest. In Phase 1 the thin feature set left little for boosting to find.</li>
-        <li><strong>Minimum nights is still the strongest single feature</strong>, ahead of guest capacity: it separates nightly stays from discounted monthly rentals.</li>
-      </ol>
+      <span class="label">Decision</span>
+      <h3 id="nn-head">What the neural networks add</h3>
+      <p id="nn-text"></p>
     </div>
-    <div class="panel">
-      <h3>Next</h3>
-      <ul class="plain">
-        <li><strong>Housing-market data:</strong> the Zillow loader is ready, but this environment's network blocks Zillow and the Census API. Add the file to <span class="mono">data/market/</span> and rerun.</li>
-        <li><strong>Calculator:</strong> still uses the Phase 2 model. It needs new inputs (guests, bathrooms, amenities) before it can use the Phase 3 model.</li>
-        <li><strong>Steps 3-5:</strong> calendar seasonality, then review text and photos through pretrained embedding models.</li>
-      </ul>
-    </div>
-  </div>
-</section>
-
-<section class="block" aria-labelledby="p3b-h">
-  <div class="sec-head">
-    <span class="step-no">Step 11</span>
-    <h3 id="p3b-h" style="font-size:var(--step-3)">Market data, review text and photos</h3>
-    <p>Each rung adds one data source to the Steps 1-2 model and is judged by host-grouped 5-fold cross-validation with LightGBM. Text features are fitted inside each fold. Reviews are limited to the 30 most recent before each snapshot, and words about price are removed: guests' comments on value are a reaction to the price.</p>
-  </div>
-  <div class="panel">
-    <div class="table-scroll"><table id="tbl-p3b"><thead><tr><th>Rung</th><th class="num">Features</th><th class="num">CV MAE</th><th class="num">Change</th><th class="num">Folds improved</th></tr></thead><tbody></tbody></table></div>
-  </div>
-  <div class="grid-2">
     <div class="panel">
       <h3>What review wording says about price</h3>
-      <p class="cap">Spearman correlation between log price and the share of a listing's reviews mentioning each aspect.</p>
+      <p class="cap">Spearman correlation with log price of the share of reviews mentioning each aspect.</p>
       <svg id="ch-asp" viewBox="0 0 440 360" width="100%" role="img" aria-label="Review aspects vs price"></svg>
     </div>
-    <div class="panel">
-      <h3 id="p3b-limits-h">Not possible yet</h3>
-      <ul class="plain">
-        <li><strong>Seasonality:</strong> Inside Airbnb's calendar files no longer contain nightly prices (empty in December, removed from March on). Only availability remains, which reflects bookings, a result of the price.</li>
-        <li id="p3b-dl"><strong>Pretrained text and photo models</strong> (<span class="mono">bge-small</span>, <span class="mono">CLIP ViT-B/32</span>): the code is ready and <span class="num" id="p3b-photos"></span> of cover photos are downloaded, but the network blocks Hugging Face's model file CDN.</li>
-        <li><strong>Zillow rent index:</strong> published by ZIP code, and the listings have no ZIP.</li>
-      </ul>
-      <p class="out-note" style="margin-top:10px">Zillow home values add nothing within Boston because the model already knows the neighbourhood. Their value is for comparing cities.</p>
-    </div>
   </div>
 </section>
 
-<!-- ============ TEAM MERGE ============ -->
-<div class="phase" id="team"><span class="label">Team review</span><h2>Two pipelines, one model</h2></div>
-
-<section class="block" aria-labelledby="tm-h" style="border-top:0; padding-top:24px">
-  <div class="sec-head">
-    <span class="step-no">Step 12</span>
-    <h3 id="tm-h" style="font-size:var(--step-3)">What a teammate's pipeline adds</h3>
-    <p>A teammate built a separate pipeline: 48 features from the September detailed file (listings with reviews only), six models including a neural network, a random train/test split, and both in-sample and out-of-sample reporting. Their script was run unchanged, then tested under our host-grouped evaluation, and each of their ideas was added to our model one at a time.</p>
-  </div>
-  <div class="grid-2">
-    <div class="panel">
-      <h3>Their models, honestly tested</h3>
-      <p class="cap">R² on log price, 5-fold CV on their <span class="num" id="tm-rows"></span> listings. A random split lets the same host appear in training and test.</p>
-      <div class="legend"><span><span class="swatch" style="background:var(--muted)"></span>Random split (theirs)</span><span><span class="swatch" style="background:var(--harbor)"></span>Split by host</span></div>
-      <svg id="ch-tm-stress" viewBox="0 0 480 320" width="100%" role="img" aria-label="Teammate models under random vs host-grouped split"></svg>
-    </div>
-    <div class="panel">
-      <h3>Same rows, features vs model</h3>
-      <p class="cap">Host-grouped CV error on the same September listings with reviews.</p>
-      <div class="table-scroll"><table id="tbl-h2h"><thead><tr><th>Features</th><th>Model</th><th class="num">CV MAE</th></tr></thead><tbody></tbody></table></div>
-      <p class="out-note" id="h2h-note" style="margin-top:8px"></p>
-    </div>
-  </div>
-  <div class="panel">
-    <h3>Each idea added to our model</h3>
-    <p class="cap">LightGBM, host-grouped 5-fold CV on June + September, base error <span class="num" id="tm-base"></span>. An idea is kept if it lowers the error in at least 4 of 5 folds and does not measure bookings.</p>
-    <div class="table-scroll"><table id="tbl-ideas"><thead><tr><th>Element</th><th>From</th><th>Status</th><th>Evidence</th></tr></thead><tbody></tbody></table></div>
-    <p class="out-note" id="tm-merged" style="margin-top:8px"></p>
-  </div>
-  <div class="panel">
-    <h3>Every model type on the merged features</h3>
-    <p class="cap">Host-grouped 80/20 split. In-sample vs out-of-sample shows overfitting: a big gap means the model memorises training listings.</p>
-    <div class="table-scroll"><table id="tbl-tm-models"><thead><tr><th>Model</th><th class="num">In-sample R²</th><th class="num">Out-of-sample R²</th><th class="num">Gap</th><th class="num">Out-of-sample MAE</th></tr></thead><tbody></tbody></table></div>
-  </div>
-  <div class="verdict">
-    <div class="call">
-      <span class="label">Result</span>
-      <h3>Their features sharpened ours; our evaluation corrected theirs.</h3>
-      <ol class="reasons">
-        <li><strong>Two ideas improve our model:</strong> months since the first review, and the day of the week of the quoted night (built on their stay-length column).</li>
-        <li><strong>One idea is excluded despite the biggest gain:</strong> days until the quoted night measures how booked-up a listing is, a result of its price.</li>
-        <li><strong>Their random split overstated accuracy</strong> by <span class="num" id="tm-opt"></span> R² on average, and their filter drops new listings, which a pricing tool must handle.</li>
-        <li><strong>The neural network trails the boosting models alone</strong>; averaged with them it changes the error by about a dollar, within noise. LightGBM stays the pricing model.</li>
-      </ol>
-    </div>
-    <div class="panel">
-      <h3>Adopted from their pipeline</h3>
-      <ul class="plain">
-        <li>In-sample vs out-of-sample reporting for every model.</li>
-        <li>Their readable groupings (6 neighbourhood areas, 10 amenity flags) remain useful for explanation, even though they add no accuracy.</li>
-      </ul>
-    </div>
-  </div>
-</section>
-
-<!-- ============ OVERFITTING ============ -->
-<div class="phase" id="trust"><span class="label">Stress test</span><h2>How much to trust the model</h2></div>
-
-<section class="block" aria-labelledby="of-h" style="border-top:0; padding-top:24px">
-  <div class="sec-head">
-    <span class="step-no">Step 13</span>
-    <h3 id="of-h" style="font-size:var(--step-3)">Overfitting, selection luck and time drift</h3>
-    <p>The merged model (LightGBM, 141 features) has a host-grouped CV error of <span class="num" id="of-cv"></span> a night. These checks ask how that number could be wrong: memorising training listings, keeping features that only won by luck, or failing on a later season.</p>
-  </div>
+<!-- ================= 8. TRUST ================= -->
+<section class="block" id="s-trust" aria-labelledby="tr-h">
+  <div class="sec-head"><span class="step-no">Stage 8</span><h2 id="tr-h">How much to trust it</h2>
+    <p>The checks ask how the headline error could be wrong: memorising training listings, keeping features that only won by luck, failing in another season, or a price range that promises more than it delivers.</p></div>
   <div class="grid-2">
     <div class="panel">
       <h3>Learning curves</h3>
-      <p class="cap">Held-out error as each model sees more training hosts. A curve still falling at the right edge would gain from more data.</p>
+      <p class="cap">Held-out error as each model sees more training hosts. Still falling at the right edge = more data would help.</p>
       <div class="legend" id="of-lc-legend"></div>
       <svg id="ch-of-lc" viewBox="0 0 480 300" width="100%" role="img" aria-label="Learning curves"></svg>
     </div>
-    <div class="panel">
-      <h3>Training fit vs held-out</h3>
-      <p class="cap">Average over 5 host-grouped folds. A big gap is memorising; it only matters if held-out error is worse than a simpler model's.</p>
-      <div class="table-scroll"><table id="tbl-of-gap"><thead><tr><th>Model</th><th class="num">Train R²</th><th class="num">Held-out R²</th><th class="num">Gap</th><th class="num">Held-out MAE</th></tr></thead><tbody></tbody></table></div>
-    </div>
-  </div>
-  <div class="grid-2">
-    <div class="panel">
-      <h3>Could a feature win by luck?</h3>
-      <div class="qprices" id="of-noise"></div>
-      <p class="out-note" id="of-noise-note"></p>
-    </div>
-    <div class="panel">
-      <h3>Next season, new hosts</h3>
-      <p class="cap">Trained on June, tested on September listings from hosts never seen. The 80% range is built from June errors.</p>
-      <div class="table-scroll"><table id="tbl-of-oot"><thead><tr><th>Training data</th><th class="num">Sep MAE</th><th class="num">Bias</th><th class="num">80% range covers</th></tr></thead><tbody></tbody></table></div>
+    <div style="display:grid; gap:28px; min-width:0">
+      <div class="panel">
+        <h3>Could a feature win by luck?</h3>
+        <div class="qprices" id="of-noise"></div>
+        <p class="out-note" id="of-noise-note"></p>
+      </div>
+      <div class="panel">
+        <h3>Next season, new hosts</h3>
+        <p class="cap">Trained on June, tested on September listings of unseen hosts. The 80% range comes from training errors.</p>
+        <div class="table-scroll"><table id="tbl-of-oot"><thead><tr><th>Training data</th><th class="num">Sep MAE</th><th class="num">Bias</th><th class="num">Range covers</th></tr></thead><tbody></tbody></table></div>
+      </div>
     </div>
   </div>
   <div class="panel">
     <h3>Where it goes wrong</h3>
-    <p class="cap">Out-of-fold predictions for every listing. Bias above 0 means the model over-prices that group.</p>
+    <p class="cap">Out-of-fold predictions for every listing. Bias above zero means the model over-prices that group.</p>
     <div class="table-scroll"><table id="tbl-of-seg"><thead><tr><th>Group</th><th class="num">Listings</th><th class="num">MAE</th><th class="num">Bias</th><th class="num">Within ±20%</th></tr></thead><tbody></tbody></table></div>
+    <p class="out-note" style="margin-top:8px">The model pulls toward the middle: the cheapest listings are over-priced and the most expensive under-priced. Very low and very high prices often come from things no listing page shows, such as a promotion or a renovation.</p>
+  </div>
+</section>
+
+<!-- ================= NEXT ================= -->
+<section class="block" id="s-next" aria-labelledby="x-h">
+  <div class="sec-head"><span class="label">Where it goes next</span><h2 id="x-h">Next steps</h2></div>
+  <div class="verdict">
+    <div class="call">
+      <span class="label">Recommendation</span>
+      <h3>Keep LightGBM on listing features as the engine; grow the data before the networks.</h3>
+      <ol class="reasons" id="next-list"></ol>
+    </div>
+    <div class="panel">
+      <h3>Deep learning, in order of value</h3>
+      <ol class="plain">
+        <li><strong>Frozen embeddings into LightGBM</strong> (what Stage 7 does). Cheapest way to use text and photos; keep it as the default.</li>
+        <li><strong>TabPFN v2</strong>, a pretrained network for tables under ~10,000 rows: a fair challenger to LightGBM at this data size, and the right neural model to try next.</li>
+        <li><strong>Fine-tuning</strong> a text or image model on price makes sense only with tens of thousands of listings, e.g. after adding more cities.</li>
+      </ol>
+    </div>
   </div>
 </section>
 
 <footer>
-  <div><strong>Reproduce it.</strong> Run <code>notebooks/boston_airbnb_pricing.ipynb</code> (Phase 1), then <code>notebooks/boston_airbnb_quarterly.ipynb</code> (Phase 2), to train, compare and export the models to <code>interface/data.js</code>. <code>node scripts/verify_js.js</code> checks that the browser calculator matches the Python models.</div>
-  <div>Data: Inside Airbnb, Boston quarterly snapshots (Dec 2025 – Sep 2026). Model metrics come from the notebook run and are not hand-entered.</div>
+  <div><strong>Reproduce it.</strong> Notebooks in order: <code>boston_airbnb_pricing</code> (snapshot, screening) → <code>boston_airbnb_quarterly</code> (time) → <code>boston_airbnb_phase3_enriched</code> (detailed attributes) → <code>boston_airbnb_team_merge</code> (feature ideas, model types, honest split) → <code>boston_airbnb_phase3_text_market</code> (text, photos, market data) → <code>boston_airbnb_overfitting_check</code> → <code>boston_airbnb_final_pipeline</code> (one ladder, final model, export). <code>node scripts/verify_js.js</code> checks that this page prices exactly like Python.</div>
+  <div>Data: Inside Airbnb Boston (Dec 2025 – Sep 2026), Zillow ZHVI. Every figure on this page is read from the notebooks' exported results.</div>
 </footer>
 </main>
 
@@ -934,14 +664,13 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
 (function () {
   "use strict";
   var P = window.PRICING;
-  if (!P) { document.getElementById("out-price").textContent = "The page data didn't load. Reload the page to try again."; return; }
-  var E = null;   // pricing engine, created once models.js has loaded
+  if (!P || !P.final) { document.getElementById("out-price").textContent = "The page data didn't load. Reload the page to try again."; return; }
+  var E = null, C = P.final;
   var NS = "http://www.w3.org/2000/svg";
-  var COLOR = { "Baseline": "var(--m-base)", "Linear Regression": "var(--m-ols)", "Lasso": "var(--m-lasso)", "Random Forest": "var(--m-rf)", "Gradient Boosting": "var(--m-gb)" };
-  var ORDER = ["Baseline", "Linear Regression", "Lasso", "Random Forest", "Gradient Boosting"];
-  var fmt$ = function (v) { return "$" + Math.round(v).toLocaleString("en-US"); };
   var $ = function (id) { return document.getElementById(id); };
-
+  var fmt$ = function (v) { return "$" + Math.round(v).toLocaleString("en-US"); };
+  var fmtPct = function (v) { return (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(1) + "%"; };
+  var sgn$ = function (v) { return (v < 0 ? "−$" : "+$") + Math.abs(v).toFixed(2); };
   function el(tag, attrs, parent, text) {
     var e = document.createElementNS(NS, tag);
     for (var k in attrs) e.setAttribute(k, attrs[k]);
@@ -950,48 +679,12 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
     return e;
   }
   function clear(svg) { while (svg.firstChild) svg.removeChild(svg.firstChild); return svg; }
-  function logScale(d0, d1, r0, r1) { var a = Math.log(d0), b = Math.log(d1); return function (v) { return r0 + (Math.log(v) - a) / (b - a) * (r1 - r0); }; }
   function linScale(d0, d1, r0, r1) { return function (v) { return r0 + (v - d0) / (d1 - d0) * (r1 - r0); }; }
-
-  /* ---------- static numbers from the notebook ---------- */
-  var M = P.meta, metrics = {};
-  P.metrics.forEach(function (m) { metrics[m.model] = m; });
-  var best = metrics[M.best];
-  $("f-rows").textContent = M.rows_model.toLocaleString("en-US");
-  $("f-feat").textContent = M.n_features;
-  $("f-mae").textContent = fmt$(best["MAE_$"]);
-  $("f-mae-k").textContent = "average error per night (" + M.best.toLowerCase() + "), " + Math.round(M.baseline_improvement * 100) + "% below the rule of thumb";
-  $("n-train").textContent = M.n_train.toLocaleString("en-US");
-  $("n-test").textContent = $("n-test2").textContent = M.n_test.toLocaleString("en-US");
-  $("alpha").textContent = M.alpha.toPrecision(2);
-  $("zeroed").textContent = M.lasso_zeroed.length + " of " + M.n_features + " features";
-  $("v-zeroed").textContent = M.lasso_zeroed.length;
-  $("rf-params").textContent = "depth " + M.rf_params.max_depth + ", leaf " + M.rf_params.min_samples_leaf + ", " + Math.round(M.rf_params.max_features * 100) + "% features/split";
-  $("gb-params").textContent = M.gb_params.n_estimators + " trees, depth " + M.gb_params.max_depth + ", η " + M.gb_params.learning_rate;
-  $("v-rf-mae").textContent = fmt$(metrics["Random Forest"]["MAE_$"]);
-  $("v-improve").textContent = Math.round(M.baseline_improvement * 100) + "%";
-  $("beds-share").textContent = Math.round(M.bedrooms_known_share * 100) + "%";
-  $("n-hoods").textContent = P.neighbourhoods.length;
-  var learned = ["Linear Regression", "Lasso", "Random Forest", "Gradient Boosting"].map(function (n) { return metrics[n].CV_RMSE_log; });
-  $("v-cv-range").textContent = Math.min.apply(null, learned).toFixed(3) + "–" + Math.max.apply(null, learned).toFixed(3);
-
-  /* ---------- metrics table ---------- */
-  var tb = document.querySelector("#tbl-metrics tbody");
-  ORDER.forEach(function (n) {
-    var m = metrics[n], tr = document.createElement("tr");
-    if (n === M.best) tr.className = "best";
-    tr.innerHTML = "<td><span class='swatch' style='background:" + COLOR[n] + "'></span>" + n + (n === M.best ? " ★" : "") + "</td>" +
-      "<td class='num'>" + m.CV_RMSE_log.toFixed(3) + " ± " + m.CV_std.toFixed(3) + "</td>" +
-      "<td class='num'>" + fmt$(m["MAE_$"]) + "</td><td class='num'>" + fmt$(m["RMSE_$"]) + "</td>" +
-      "<td class='num'>" + m.R2_log.toFixed(3) + "</td><td class='num'>" + m["MAPE_%"].toFixed(1) + "%</td>" +
-      "<td class='num'>" + m["within_20%"].toFixed(1) + "%</td><td class='num'>" + m.train_time_s.toFixed(1) + " s</td>";
-    tb.appendChild(tr);
-  });
-
-  /* ---------- charts ---------- */
+  function logScale(d0, d1, r0, r1) { var a = Math.log(d0), b = Math.log(d1); return function (v) { return r0 + (Math.log(v) - a) / (b - a) * (r1 - r0); }; }
   function hbar(svg, rows, opt) {
     clear(svg);
     var W = opt.w, L = opt.left, R = opt.right || 60, rowH = opt.rowH || 28, top = opt.top || 6;
+    svg.setAttribute("viewBox", "0 0 " + W + " " + (top + rows.length * rowH + 6));
     var max = opt.max || Math.max.apply(null, rows.map(function (r) { return r.v; }));
     var x = linScale(0, max, L, W - R);
     rows.forEach(function (r, i) {
@@ -1001,128 +694,93 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
       el("text", { x: x(r.v) + 6, y: y + rowH / 2 + 4, "class": "ink" }, svg, r.text);
     });
   }
+  function rowsInto(tbodySel, rows) { var tb = document.querySelector(tbodySel); rows.forEach(function (tr) { tb.appendChild(tr); }); }
+  function tr(cells, cls) {
+    var t = document.createElement("tr"); if (cls) t.className = cls;
+    cells.forEach(function (c) { var td = document.createElement("td"); if (c.num) td.className = "num"; if (c.mono) td.className = "mono"; if (c.node) td.appendChild(c.node); else td.textContent = c.t; t.appendChild(td); });
+    return t;
+  }
+  function chip(text, kind) { var s = document.createElement("span"); s.className = "chip " + kind; s.textContent = text; return s; }
 
-  // histogram (log-spaced bins)
+  /* ---------------- headline facts ---------------- */
+  $("f-rows").textContent = C.n_rows.toLocaleString("en-US");
+  $("f-feat").textContent = C.features.length;
+  $("f-mae").textContent = fmt$(C.oof_mae);
+  $("f-r2").textContent = C.oof_r2.toFixed(2);
+  $("f-mae-k").textContent = "average error per night on hosts the model never saw (" + Math.round(C.within_20) + "% of listings within ±20%)";
+
+  /* ---------------- pipeline overview ---------------- */
+  var L0 = {}; C.ladder.forEach(function (r) { L0[r.rung] = r; });
+  var rk = Object.keys(L0);
+  var stress = P.team_merge.stress, optimism = P.team_merge.optimism_r2;
+  var jo = P.quarterly.experiments.filter(function (r) { return r.experiment === "June-only" && r.test === "Sep 2026"; })[0];
+  var stages = [
+    ["s-data", "Data", "4 quarterly snapshots, detailed exports, 268k reviews, 4,700 photos"],
+    ["s-clean", "Check and clean", P.precheck.filter(function (r) { return r.rows > 0; }).length + " checks with findings; 7 price-derived columns kept out"],
+    ["s-features", "Features", C.features.length + " features kept from candidates ranked, screened and tested one by one"],
+    ["s-models", "Models", "10 model types compared on unseen hosts; gradient boosting leads"],
+    ["s-eval", "Honest test", "Split by host: random split overstated R² by " + optimism.toFixed(2)],
+    ["s-time", "Time", "Summer-only model over-prices September by " + fmtPct(jo["bias_%"]).replace("+", "")],
+    ["s-nn", "Text and photos", "Neural embeddings vs classic NLP, on one ladder"],
+    ["s-trust", "Trust", "Noise test, nested selection, next-season test"]
+  ];
+  var pipe = $("pipe");
+  stages.forEach(function (s, i) {
+    var li = document.createElement("li"); var a = document.createElement("a"); a.href = "#" + s[0];
+    a.innerHTML = "<span class='n'>" + (i + 1) + "</span><strong></strong><span class='d'></span>";
+    a.querySelector("strong").textContent = s[1]; a.querySelector(".d").textContent = s[2];
+    li.appendChild(a); pipe.appendChild(li);
+  });
+
+  /* ---------------- Stage 1 charts ---------------- */
   (function () {
     var svg = $("ch-hist"), h = P.price_hist, W = 480, H = 200, L = 34, B = 26, T = 8;
     var x = logScale(h.edges[0], h.edges[h.edges.length - 1], L, W - 10);
     var maxC = Math.max.apply(null, h.counts), y = linScale(0, maxC, H - B, T);
     [0, 100, 200, 300].forEach(function (v) { if (v <= maxC) { el("line", { x1: L, x2: W - 10, y1: y(v), y2: y(v), "class": "grid" }, svg); el("text", { x: L - 6, y: y(v) + 4, "text-anchor": "end" }, svg, v); } });
-    h.counts.forEach(function (c, i) {
-      el("rect", { x: x(h.edges[i]) + 0.5, y: y(c), width: Math.max(0.5, x(h.edges[i + 1]) - x(h.edges[i]) - 1), height: y(0) - y(c), fill: "var(--harbor)" }, svg);
-    });
+    h.counts.forEach(function (c, i) { el("rect", { x: x(h.edges[i]) + 0.5, y: y(c), width: Math.max(0.5, x(h.edges[i + 1]) - x(h.edges[i]) - 1), height: y(0) - y(c), fill: "var(--harbor)" }, svg); });
     [50, 100, 200, 500, 1000, 2000].forEach(function (v) { el("text", { x: x(v), y: H - 8, "text-anchor": "middle" }, svg, "$" + v); });
   })();
-
-  // room type
-  (function () {
-    var rs = P.room_stats.slice().sort(function (a, b) { return b.median - a.median; });
-    hbar($("ch-room"), rs.map(function (r) { return { label: r.room_type, v: r.median, text: fmt$(r.median) + "  · n=" + r.count, color: r.room_type === "Entire home/apt" ? "var(--brick)" : "var(--muted)" }; }), { w: 480, left: 112, right: 120, rowH: 34 });
-  })();
-
-  // neighbourhood dot + IQR
   (function () {
     var svg = $("ch-hood"), hs = P.hood_stats.slice().sort(function (a, b) { return b.median - a.median; });
-    var W = 900, L = 180, R = 70, rowH = 21.5, T = 8;
-    svg.setAttribute("viewBox", "0 0 " + W + " " + (T + hs.length * rowH + 28));
-    var x = linScale(0, 800, L, W - R);
-    [0, 200, 400, 600, 800].forEach(function (v) {
-      el("line", { x1: x(v), x2: x(v), y1: T, y2: T + hs.length * rowH, "class": "grid" }, svg);
-      el("text", { x: x(v), y: T + hs.length * rowH + 18, "text-anchor": "middle" }, svg, "$" + v);
-    });
+    var W = 480, L = 150, R = 50, rowH = 21, T = 8;
+    svg.setAttribute("viewBox", "0 0 " + W + " " + (T + hs.length * rowH + 26));
+    var x = linScale(0, 700, L, W - R);
+    [0, 200, 400, 600].forEach(function (v) { el("line", { x1: x(v), x2: x(v), y1: T, y2: T + hs.length * rowH, "class": "grid" }, svg); el("text", { x: x(v), y: T + hs.length * rowH + 16, "text-anchor": "middle" }, svg, "$" + v); });
     hs.forEach(function (h, i) {
       var y = T + i * rowH + rowH / 2;
-      el("text", { x: L - 10, y: y + 4, "text-anchor": "end", "class": "ink" }, svg, h.neighbourhood);
-      el("line", { x1: x(h.q25), x2: x(Math.min(h.q75, 800)), y1: y, y2: y, stroke: "var(--harbor)", "stroke-width": 6, "stroke-linecap": "round", opacity: 0.35 }, svg);
-      el("circle", { cx: x(h.median), cy: y, r: 5, fill: "var(--brick)" }, svg);
-      el("text", { x: W - R + 8, y: y + 4 }, svg, fmt$(h.median) + " · " + h.count);
+      el("text", { x: L - 8, y: y + 4, "text-anchor": "end", "class": "ink" }, svg, h.neighbourhood);
+      el("line", { x1: x(h.q25), x2: x(Math.min(h.q75, 700)), y1: y, y2: y, stroke: "var(--harbor)", "stroke-width": 6, "stroke-linecap": "round", opacity: 0.35 }, svg);
+      el("circle", { cx: x(h.median), cy: y, r: 4.5, fill: "var(--brick)" }, svg);
+      el("text", { x: W - R + 6, y: y + 4 }, svg, fmt$(h.median));
     });
   })();
 
-  // MAE bars
-  hbar($("ch-mae"), ORDER.map(function (n) { return { label: n, v: metrics[n]["MAE_$"], text: fmt$(metrics[n]["MAE_$"]), color: COLOR[n], strong: n === M.best }; }), { w: 480, left: 130, right: 56, rowH: 40, top: 6 });
+  /* ---------------- Stage 2 ---------------- */
+  rowsInto("#tbl-pre tbody", P.precheck.map(function (r) {
+    var t = tr([{ t: r.check }, { t: r.rows.toLocaleString("en-US"), num: true }, { t: r.rows ? r.action : "nothing found" }]);
+    if (!r.rows) t.style.color = "var(--muted)"; return t;
+  }));
+  var leakRows = [
+    ["price_quote_* (5 columns)", "Identical to the price in 100% of rows"],
+    ["estimated_revenue_l365d", "Computed as price × occupancy"],
+    ["estimated_occupancy_l365d", "Bookings respond to the price"],
+    ["availability_30 / 60 / 90", "Short-term availability is mostly bookings"],
+    ["days until the quoted night", "The quote is for the first free night, so a long wait means booked-up (Spearman −0.68 with 30-day availability)"],
+    ["host listing count (exact)", "Identifies large operators; replaced by five size bands"],
+    ["review words about value or price", "Guests' reaction to the price; removed from review text"]
+  ];
+  rowsInto("#tbl-leak tbody", leakRows.map(function (r) { return tr([{ t: r[0], mono: true }, { t: r[1] }]); }));
 
-  // CV strip plot
+  /* ---------------- Stage 3 ---------------- */
+  var NICE = { private_room: "Private room", hotel_room: "Hotel room", shared_room: "Shared room", log_min_nights: "Minimum nights", monthly: "Monthly rental (28+ nights)",
+    log_reviews: "Total reviews", reviews_per_month: "Reviews per month", number_of_reviews_ltm: "Reviews in last 12 months", log_host_listings: "Host's listing count",
+    availability_365: "Nights open per year", licensed: "STR license", exempt: "License exempt", dist_km: "Distance to Boston Common", latitude: "Latitude",
+    longitude: "Longitude", bedrooms: "Bedrooms (title)", bedrooms_known: "Bedrooms stated in title", kw_parking: "Title: parking", kw_luxury: "Title: modern",
+    kw_view: "Title: view", kw_amenities: "Title: gym / pool", kw_managed: "Title: managed brand", host_size_band: "Host size band" };
+  var nice = function (f) { return NICE[f] || f; };
   (function () {
-    var svg = $("ch-cv"), W = 480, L = 130, R = 20, rowH = 40, T = 6;
-    var all = []; ORDER.forEach(function (n) { all = all.concat(P.cv_scores[n]); });
-    var lo = Math.floor(Math.min.apply(null, all) * 20) / 20, hi = Math.ceil(Math.max.apply(null, all) * 20) / 20;
-    var x = linScale(lo, hi, L, W - R);
-    for (var v = lo; v <= hi + 1e-9; v += 0.05) {
-      el("line", { x1: x(v), x2: x(v), y1: T, y2: T + 5 * rowH, "class": "grid" }, svg);
-      el("text", { x: x(v), y: T + 5 * rowH + 14, "text-anchor": "middle" }, svg, v.toFixed(2));
-    }
-    ORDER.forEach(function (n, i) {
-      var y = T + i * rowH + rowH / 2, s = P.cv_scores[n], mean = s.reduce(function (a, b) { return a + b; }, 0) / s.length;
-      el("text", { x: L - 8, y: y + 4, "text-anchor": "end", "class": n === M.best ? "ink" : "" }, svg, n);
-      s.forEach(function (v) { el("circle", { cx: x(v), cy: y, r: 4.5, fill: COLOR[n], opacity: 0.75 }, svg); });
-      el("line", { x1: x(mean), x2: x(mean), y1: y - 10, y2: y + 10, stroke: "var(--ink)", "stroke-width": 2 }, svg);
-    });
-  })();
-
-  // scatter with tabs
-  (function () {
-    var tabs = $("scatter-tabs"), cur = M.best;
-    function draw() {
-      var svg = clear($("ch-scatter")), W = 440, H = 340, L = 50, B = 34, T = 10, R = 12;
-      var x = logScale(30, 2000, L, W - R), y = logScale(30, 2000, H - B, T);
-      [50, 100, 200, 500, 1000, 2000].forEach(function (v) {
-        el("line", { x1: x(v), x2: x(v), y1: T, y2: H - B, "class": "grid" }, svg);
-        el("line", { x1: L, x2: W - R, y1: y(v), y2: y(v), "class": "grid" }, svg);
-        el("text", { x: x(v), y: H - B + 16, "text-anchor": "middle" }, svg, "$" + v);
-        el("text", { x: L - 6, y: y(v) + 4, "text-anchor": "end" }, svg, "$" + v);
-      });
-      el("text", { x: (L + W) / 2, y: H - 2, "text-anchor": "middle" }, svg, "actual price");
-      el("text", { x: 12, y: (T + H - B) / 2, "text-anchor": "middle", transform: "rotate(-90 12 " + (T + H - B) / 2 + ")" }, svg, "predicted");
-      var d = P.test_scatter[cur], c = function (v) { return Math.min(2000, Math.max(30, v)); };
-      d.actual.forEach(function (a, i) { el("circle", { cx: x(c(a)), cy: y(c(d.pred[i])), r: 2.6, fill: COLOR[cur], opacity: 0.55 }, svg); });
-      el("line", { x1: x(30), y1: y(30), x2: x(2000), y2: y(2000), stroke: "var(--ink)", "stroke-dasharray": "4 4" }, svg);
-      el("text", { x: W - R - 4, y: T + 14, "text-anchor": "end", "class": "ink" }, svg, cur + " · R² " + metrics[cur].R2_log.toFixed(2));
-    }
-    ORDER.forEach(function (n) {
-      var b = document.createElement("button");
-      b.type = "button"; b.innerHTML = "<span class='swatch' style='background:" + COLOR[n] + "'></span>" + n;
-      b.setAttribute("aria-pressed", n === cur ? "true" : "false");
-      b.onclick = function () { cur = n; Array.prototype.forEach.call(tabs.children, function (t) { t.setAttribute("aria-pressed", "false"); }); b.setAttribute("aria-pressed", "true"); draw(); };
-      tabs.appendChild(b);
-    });
-    draw();
-  })();
-
-  // importance
-  var NICE = {
-    "private_room": "Private room", "hotel_room": "Hotel room", "shared_room": "Shared room", "log_min_nights": "Minimum nights",
-    "monthly": "Monthly rental (28+ nights)", "log_reviews": "Total reviews", "reviews_per_month": "Reviews per month",
-    "number_of_reviews_ltm": "Reviews in last 12 months", "log_host_listings": "Host's listing count", "availability_365": "Nights open per year",
-    "licensed": "STR license", "exempt": "License exempt", "dist_km": "Distance to Boston Common", "latitude": "Latitude", "longitude": "Longitude",
-    "bedrooms": "Bedrooms", "bedrooms_known": "Bedrooms stated in title", "kw_parking": "Parking", "kw_luxury": "Modern / renovated",
-    "kw_view": "View / rooftop", "kw_amenities": "Gym / pool / concierge", "kw_managed": "Furnished, managed brand",
-    "neighbourhood (one-hot)": "Neighbourhood", "Neighbourhood (one-hot)": "Neighbourhood",
-    "host_size_band": "Host size band", "kw_managed": "Furnished, managed brand",
-    "q_sep": "Quarter (Sep vs Jun)", "tenure_q": "Tenure (quarters live)", "days_since_review": "Days since last review",
-    "Zones (rings + clusters)": "Zones (rings + clusters)"
-  };
-  var nice = function (f) { return NICE[f] || (f.indexOf("nb_") === 0 ? f.slice(3) : f); };
-  (function () {
-    var imp = Object.keys(P.importance).map(function (k) { return { k: k, v: P.importance[k] }; }).filter(function (r) { return r.v > 0; }).slice(0, 12);
-    $("ch-imp").setAttribute("viewBox", "0 0 440 " + (imp.length * 28 + 12));
-    hbar($("ch-imp"), imp.map(function (r) { return { label: nice(r.k), v: r.v, text: r.v.toFixed(3), color: "var(--harbor)" }; }), { w: 440, left: 186, right: 50, rowH: 28 });
-  })();
-
-  /* ---------- pre-check & screening ---------- */
-  (function () {
-    var tb = document.querySelector("#tbl-pre tbody");
-    P.precheck.forEach(function (r) {
-      var tr = document.createElement("tr");
-      tr.innerHTML = "<td></td><td class='num'></td><td></td>";
-      tr.children[0].textContent = r.check;
-      tr.children[1].textContent = r.rows.toLocaleString("en-US");
-      tr.children[2].textContent = r.rows ? r.action : "nothing found";
-      if (!r.rows) tr.style.color = "var(--muted)";
-      tb.appendChild(tr);
-    });
-
-    var DEC = { monthly: "drop", log_host_listings: "replace", kw_managed: "drop", shared_room: "drop" };
+    var DEC = { monthly: "drop", log_host_listings: "replace", kw_managed: "drop" };
     var rows = P.screening.slice().sort(function (a, b) { return b.mutual_info - a.mutual_info; });
     var svg = $("ch-screen"), W = 480, L = 196, R = 46, rowH = 25, T = 4;
     svg.setAttribute("viewBox", "0 0 " + W + " " + (T + rows.length * rowH + 20));
@@ -1132,251 +790,61 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
     rows.forEach(function (r, i) {
       var y = T + i * rowH, d = DEC[r.feature];
       var lab = el("text", { x: L - 8, y: y + 16, "text-anchor": "end", "class": d ? "" : "ink" }, svg, (d === "drop" ? "✕ " : d === "replace" ? "↻ " : "") + nice(r.feature));
-      if (d) lab.setAttribute("text-decoration", d === "drop" ? "line-through" : "none");
+      if (d === "drop") lab.setAttribute("text-decoration", "line-through");
       el("rect", { x: L, y: y + 4, width: Math.max(1, x(Math.abs(r.spearman)) - L), height: 8, fill: "var(--harbor)", rx: 1, opacity: d ? 0.45 : 1 }, svg);
       el("rect", { x: L, y: y + 13, width: Math.max(1, x(r.mutual_info) - L), height: 8, fill: "var(--m-ols)", rx: 1, opacity: d ? 0.45 : 1 }, svg);
       if (r.VIF > 10) el("text", { x: Math.max(x(Math.abs(r.spearman)), x(r.mutual_info)) + 6, y: y + 16, style: "fill: var(--brick)" }, svg, "VIF " + r.VIF.toFixed(0));
     });
-
-    var lk = P.leak, box = $("leak");
-    [["Random split", lk.random], ["Split by host", lk.grouped]].forEach(function (t, i) {
-      var d = document.createElement("div"); d.className = "qprice"; d.dataset.active = i ? "true" : "false";
-      d.innerHTML = "<span class='label'></span><span class='v'></span>";
-      d.querySelector(".label").textContent = t[0] + " · CV RMSE"; d.querySelector(".v").textContent = t[1].toFixed(3);
-      box.appendChild(d);
+  })();
+  (function () {
+    var fam = Object.keys(C.family_gain).map(function (k) { return { k: k, v: C.family_gain[k] }; }).sort(function (a, b) { return b.v - a.v; });
+    hbar($("ch-fam"), fam.map(function (r) { return { label: r.k, v: r.v, text: r.v.toFixed(1) + "%", color: /neural/.test(r.k) ? "var(--m-ols)" : /classic/.test(r.k) ? "var(--m-lasso)" : "var(--harbor)" }; }), { w: 440, left: 200, right: 50, rowH: 26 });
+  })();
+  (function () {
+    var ideas = [
+      ["Detailed attributes (guests, baths, amenities, scores…)", L0[rk[1]]["change vs previous rung"], L0[rk[1]]["folds improved"], "Kept"],
+      ["Landmarks and nearby supply", L0[rk[2]]["change vs previous rung"], L0[rk[2]]["folds improved"], "Kept"]
+    ];
+    P.team_merge.ideas.forEach(function (r) {
+      var name = { "host experience (months)": "Host experience (months)", "months since first review": "Months since first review (listing age)",
+        "stay length of the price quote": "Stay length of the price quote", "6 neighbourhood areas": "6 grouped neighbourhood areas",
+        "10 broad amenity flags": "10 broad amenity flags", "log host listing count (raw)": "Exact host listing count",
+        "quote night: day of week (our extension)": "Night of the week being priced", "quote night: days ahead (our extension)": "Days until the quoted night" }[r.idea] || r.idea;
+      var dec = r.idea in (P.team_merge.leaky_ideas || {}) ? "Excluded: measures bookings" : (P.team_merge.kept.indexOf(r.idea) >= 0 ? "Kept" : "Not kept");
+      ideas.push([name, r["change $"], r["folds improved"], dec]);
     });
-    $("leak-note").textContent = "Error rises " + Math.round((lk.grouped / lk.random - 1) * 100) + "% when the model can't see a test listing's siblings. With " + lk.hosts.toLocaleString("en-US") + " hosts, and up to " + lk.largest_host + " listings for one host, a random split was optimistic. Every result on this page now uses the host split, which is the honest test for a new host.";
-
-    var tbd = document.querySelector("#tbl-dec tbody");
-    P.decisions.forEach(function (r) {
-      var tr = document.createElement("tr"); tr.innerHTML = "<td class='mono'></td><td></td><td></td>";
-      tr.children[0].textContent = r.variable; tr.children[2].textContent = r.evidence;
-      var chip = document.createElement("span"); chip.className = "chip " + (/^Drop/.test(r.decision) ? "drop" : /^Replace/.test(r.decision) ? "src" : "use");
-      chip.textContent = r.decision; tr.children[1].appendChild(chip); tbd.appendChild(tr);
-    });
-
-    var ta = document.querySelector("#tbl-abl tbody"), keys = Object.keys(P.ablation[0]);
-    var rfK = keys.filter(function (k) { return /Random Forest/.test(k); })[0], laK = keys.filter(function (k) { return /Lasso/.test(k); })[0];
-    P.ablation.forEach(function (r, i) {
-      var tr = document.createElement("tr"); if (i === P.ablation.length - 1) tr.className = "best";
-      tr.innerHTML = "<td></td><td class='num'>" + r[rfK].toFixed(4) + "</td><td class='num'>" + r[laK].toFixed(4) + "</td>";
-      tr.children[0].textContent = r.pipeline.replace(/^\d\.\s*/, ""); ta.appendChild(tr);
-    });
-    var a0 = P.ablation[0], a2 = P.ablation[P.ablation.length - 1];
-    var pct = function (a, b) { var v = (1 - b / a) * 100; return (v >= 0 ? v.toFixed(1) + "% lower" : Math.abs(v).toFixed(1) + "% higher"); };
-    $("abl-note").textContent = "Final pipeline vs original: random forest error " + pct(a0[rfK], a2[rfK]) + ", Lasso " + pct(a0[laK], a2[laK]) + ". The gains are modest, so the main value of the recheck is a simpler, non-leaking model and an honest error estimate.";
+    var nb = P.phase3.cv_paired.filter(function (r) { return /location context/.test(r.step); })[0];
+    var zl = P.phase3b.ladder.filter(function (r) { return /Zillow/.test(r.rung); })[0];
+    if (nb) ideas.push(["Neighbours' median Airbnb price", nb["mean_change_$"], nb.folds_improved, "Not kept"]);
+    if (zl) ideas.push(["Zillow neighbourhood home values", zl["change vs previous"], zl["folds improved"], "Not kept"]);
+    rowsInto("#tbl-ideas tbody", ideas.map(function (r) {
+      var kind = r[3] === "Kept" ? "use" : /Excluded/.test(r[3]) ? "target" : "drop";
+      return tr([{ t: r[0] }, { t: sgn$(r[1]), num: true }, { t: (r[2] == null ? "–" : r[2] + " of 5"), num: true }, { node: chip(r[3], kind) }], r[3] === "Kept" ? "best" : "");
+    }));
   })();
 
-  /* ---------- phase 2: quarterly ---------- */
-  var Q = P.quarterly, QLABEL = { "2026Q2": "Jun 2026", "2026Q3": "Sep 2026" };
-  var fmtPct = function (v) { return (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(1) + "%"; };
+  /* ---------------- Stage 4 ---------------- */
   (function () {
-    var box = $("qcards");
-    Q.quarters.forEach(function (q) {
-      var d = document.createElement("div"); d.className = "qcard";
-      d.innerHTML = "<span class='q'></span><span class='pill " + (q.priced ? "ok" : "no") + "'>" + (q.priced ? q.priced.toLocaleString("en-US") + " priced" : "no prices published") + "</span>" +
-        "<div class='row'><span>Listings</span><span>" + q.listings.toLocaleString("en-US") + "</span></div>" +
-        "<div class='row'><span>Entire homes</span><span>" + Math.round(q.entire_share * 100) + "%</span></div>" +
-        "<div class='row'><span>Actual median</span><span>" + (q.actual_median ? fmt$(q.actual_median) : "–") + "</span></div>" +
-        "<div class='row'><span>June model median</span><span>" + fmt$(q.june_model_median) + "</span></div>";
-      d.querySelector(".q").textContent = q.label;
-      box.appendChild(d);
-    });
-    $("q-cv-rf").textContent = Q.june_cv["Random Forest"].toFixed(4);
-    $("q-cv-gb").textContent = Q.june_cv["Gradient Boosting"].toFixed(4);
-
-    var EX = {}; Q.experiments.forEach(function (r) { (EX[r.experiment] = EX[r.experiment] || {})[r.test] = r; });
-    var names = Q.experiment_order;
-    var META = {
-      "June-only": ["Jun", "48 snapshot"], "Sep-only": ["Sep", "48 snapshot"], "Pooled": ["Jun + Sep", "48 snapshot"],
-      "Pooled + time": ["Jun + Sep", "+ time"], "Pooled + time + zone": ["Jun + Sep", "+ time + zone"],
-      "Pooled + time + zone, recency-weighted": ["Jun + Sep, Sep ×2", "+ time + zone"]
-    };
-    function grouped(svgId, metric, fmt, zero) {
-      var svg = $(svgId), W = 480, L = 168, R = 58, rowH = 52, T = 6;
-      svg.setAttribute("viewBox", "0 0 " + W + " " + (T + names.length * rowH + 18));
-      var vals = []; names.forEach(function (n) { vals.push(EX[n]["Jun 2026"][metric], EX[n]["Sep 2026"][metric]); });
-      var lo = zero ? Math.min(0, Math.min.apply(null, vals)) : 0, hi = Math.max.apply(null, vals) * 1.05;
-      var x = linScale(lo, hi, L, W - R);
-      if (zero) el("line", { x1: x(0), x2: x(0), y1: T, y2: T + names.length * rowH, stroke: "var(--ink)", "stroke-width": 1 }, svg);
-      names.forEach(function (n, i) {
-        var y = T + i * rowH, short = n.replace(", recency-weighted", " (Sep ×2)");
-        var words = short.split(" + "), lines = words.length > 2 ? [words[0] + " + " + words[1], "+ " + words.slice(2).join(" + ")] : [short];
-        lines.forEach(function (ln, k) { el("text", { x: L - 8, y: y + rowH / 2 + 4 - (lines.length - 1) * 7 + k * 14, "text-anchor": "end", "class": n === Q.final ? "ink" : "" }, svg, ln); });
-        [["Jun 2026", "var(--jun)", 6], ["Sep 2026", "var(--sep)", 25]].forEach(function (t) {
-          var v = EX[n][t[0]][metric], x0 = x(Math.min(0, v)), x1 = x(Math.max(0, v));
-          el("rect", { x: x0, y: y + t[2], width: Math.max(1, x1 - x0), height: 17, fill: t[1], rx: 2 }, svg);
-          el("text", { x: x1 + 5, y: y + t[2] + 13, "class": "ink" }, svg, fmt(v));
-        });
-      });
-    }
-    grouped("ch-exp", "MAE_$", fmt$, false);
-    grouped("ch-bias", "bias_%", fmtPct, true);
-
-    var tb = document.querySelector("#tbl-exp tbody");
-    names.forEach(function (n) {
-      var tr = document.createElement("tr"), j = EX[n]["Jun 2026"], sp = EX[n]["Sep 2026"];
-      if (n === Q.final) tr.className = "best";
-      tr.innerHTML = "<td></td><td>" + META[n][0] + "</td><td>" + META[n][1] + "</td><td class='num'>" + fmt$(j["MAE_$"]) + "</td><td class='num'>" + fmt$(sp["MAE_$"]) +
-        "</td><td class='num'>" + fmtPct(sp["bias_%"]) + "</td><td class='num'>" + sp["within_20%"].toFixed(1) + "%</td>";
-      tr.firstChild.textContent = n + (n === Q.final ? " ★" : "");
-      tb.appendChild(tr);
-    });
-    var jo = EX["June-only"]["Sep 2026"], fin = EX[Q.final]["Sep 2026"];
-    $("q-bias-jo").textContent = fmtPct(jo["bias_%"]); $("q-mae-jo").textContent = fmt$(jo["MAE_$"]);
-    $("q-mae-fin").textContent = fmt$(fin["MAE_$"]); $("q-bias-fin").textContent = fmtPct(fin["bias_%"]);
-    $("q-mae-sep").textContent = fmt$(EX["Sep-only"]["Sep 2026"]["MAE_$"]); $("q-mae-sepjun").textContent = fmt$(EX["Sep-only"]["Jun 2026"]["MAE_$"]);
-    $("q-headline").textContent = "Pooling the quarters with time and zone cuts September error by " + Math.round((1 - fin["MAE_$"] / jo["MAE_$"]) * 100) + "%.";
-
-    // weights dumbbell
-    var W8 = Q.weights.slice().sort(function (a, b) { return a["Sep 2026"] - b["Sep 2026"]; });
-    var svg = $("ch-weights"), W = 480, L = 196, R = 16, rowH = 25, T = 6;
-    svg.setAttribute("viewBox", "0 0 " + W + " " + (T + W8.length * rowH + 22));
-    var all = []; W8.forEach(function (r) { all.push(r["Jun 2026"], r["Sep 2026"]); });
-    var lo = Math.floor(Math.min.apply(null, all) / 20) * 20, hi = Math.ceil(Math.max.apply(null, all) / 20) * 20;
-    var x = linScale(lo, hi, L, W - R);
-    for (var v = lo; v <= hi; v += 20) {
-      el("line", { x1: x(v), x2: x(v), y1: T, y2: T + W8.length * rowH, "class": "grid" }, svg);
-      el("text", { x: x(v), y: T + W8.length * rowH + 16, "text-anchor": "middle" }, svg, (v > 0 ? "+" : "") + v + "%");
-    }
-    el("line", { x1: x(0), x2: x(0), y1: T, y2: T + W8.length * rowH, stroke: "var(--ink)", "stroke-width": 1 }, svg);
-    W8.forEach(function (r, i) {
-      var y = T + i * rowH + rowH / 2;
-      el("text", { x: L - 8, y: y + 4, "text-anchor": "end", "class": "ink" }, svg, nice(r.feature));
-      el("line", { x1: x(r["Jun 2026"]), x2: x(r["Sep 2026"]), y1: y, y2: y, stroke: "var(--muted)", "stroke-width": 2 }, svg);
-      el("circle", { cx: x(r["Jun 2026"]), cy: y, r: 5, fill: "var(--jun)" }, svg);
-      el("circle", { cx: x(r["Sep 2026"]), cy: y, r: 5, fill: "var(--sep)" }, svg);
-    });
-
-    // importance
-    var imp = Object.keys(Q.importance).map(function (k) { return { k: k, v: Q.importance[k] }; }).slice(0, 12);
-    $("ch-qimp").setAttribute("viewBox", "0 0 440 " + (imp.length * 28 + 12));
-    var TZ = { "q_sep": 1, "tenure_q": 1, "days_since_review": 1, "Zones (rings + clusters)": 1 };
-    hbar($("ch-qimp"), imp.map(function (r) { return { label: nice(r.k), v: r.v, text: r.v.toFixed(3), color: TZ[r.k] ? "var(--m-q)" : "var(--harbor)", strong: !!TZ[r.k] }; }), { w: 440, left: 186, right: 50, rowH: 28 });
-
-    // zones table
-    var zb = document.querySelector("#tbl-zones tbody");
-    Object.keys(Q.zones.names).map(function (z) {
-      return { name: Q.zones.names[z], j: Q.zone_price[z + "|Jun 2026"], s: Q.zone_price[z + "|Sep 2026"] };
-    }).sort(function (a, b) { return b.s - a.s; }).forEach(function (r) {
-      var tr = document.createElement("tr");
-      tr.innerHTML = "<td></td><td class='num'>" + fmt$(r.j) + "</td><td class='num'>" + fmt$(r.s) + "</td><td class='num'>" + fmtPct((r.s / r.j - 1) * 100) + "</td>";
-      tr.firstChild.textContent = r.name; zb.appendChild(tr);
-    });
+    var ms = P.team_merge.models.slice().sort(function (a, b) { return a["out MAE_$"] - b["out MAE_$"]; });
+    rowsInto("#tbl-models tbody", ms.map(function (r) {
+      return tr([{ t: r.model }, { t: r["in R2_log"].toFixed(3), num: true }, { t: r["out R2_log"].toFixed(3), num: true }, { t: r["overfit gap (R²)"].toFixed(3), num: true }, { t: fmt$(r["out MAE_$"]), num: true }], r.model === "LightGBM" ? "best" : "");
+    }));
+    var lg = ms.filter(function (r) { return r.model === "LightGBM"; })[0], nn = ms.filter(function (r) { return /Neural/.test(r.model); })[0], en = ms.filter(function (r) { return /Ensemble/.test(r.model); })[0];
+    $("models-note").textContent = "LightGBM has the lowest held-out error of the single models. The neural network (" + fmt$(nn["out MAE_$"]) + ") lands with random forest; averaging it with LightGBM and CatBoost (" + fmt$(en["out MAE_$"]) + ") is within a dollar of LightGBM alone (" + fmt$(lg["out MAE_$"]) + "), so the simpler model is kept. The rule of thumb is far behind on the same test.";
+    var h = P.team_merge.h2h, best = Math.min.apply(null, h.map(function (r) { return r["host-grouped CV MAE ($)"]; }));
+    rowsInto("#tbl-h2h tbody", h.map(function (r) {
+      var f = /their/.test(r.features) ? "Compact set (48)" : "Full set (141)", m = /their/.test(r.model) ? "Gradient boosting (sklearn)" : "LightGBM";
+      return tr([{ t: f }, { t: m }, { t: "$" + r["host-grouped CV MAE ($)"].toFixed(2), num: true }], r["host-grouped CV MAE ($)"] === best ? "best" : "");
+    }));
   })();
 
-  /* ---------- phase 3: richer data ---------- */
+  /* ---------------- Stage 5 ---------------- */
   (function () {
-    var R = P.phase3; if (!R) return;
-    var MC = { "Lasso": "var(--m-lasso)", "Random Forest": "var(--m-rf)", "LightGBM": "var(--m-gb)", "CatBoost": "var(--m-ols)" };
-    var SHORT = { "0. Phase 2 features": "Phase 2 features", "1. + detailed attributes": "+ detailed attributes", "2. + location context": "+ location context" };
-    $("p3-ntest").textContent = R.n_test.toLocaleString("en-US");
-    var lg = $("p3-legend");
-    R.models.forEach(function (m) { var sp = document.createElement("span"); sp.innerHTML = "<span class='swatch' style='background:" + MC[m] + "'></span>"; sp.appendChild(document.createTextNode(m)); lg.appendChild(sp); });
-    var LD = {}; R.ladder.forEach(function (r) { (LD[r.step] = LD[r.step] || {})[r.model] = r; });
-    var svg = $("ch-p3"), W = 480, H = 300, L = 44, Rr = 20, T = 12, B = 46;
-    var vals = R.ladder.map(function (r) { return r["MAE_$"]; });
-    var lo = Math.floor(Math.min.apply(null, vals) / 10) * 10 - 5, hi = Math.ceil(Math.max.apply(null, vals) / 10) * 10 + 5;
-    var x = function (i) { return L + 30 + i * (W - L - Rr - 60) / (R.steps.length - 1); }, yS = linScale(lo, hi, H - B, T);
-    for (var v = Math.ceil(lo / 10) * 10; v <= hi; v += 10) { el("line", { x1: L, x2: W - Rr, y1: yS(v), y2: yS(v), "class": "grid" }, svg); el("text", { x: L - 6, y: yS(v) + 4, "text-anchor": "end" }, svg, "$" + v); }
-    R.steps.forEach(function (st, i) {
-      var parts = SHORT[st].split(" ");
-      var half = Math.ceil(parts.length / 2);
-      el("text", { x: x(i), y: H - B + 18, "text-anchor": "middle", "class": "ink" }, svg, parts.slice(0, half).join(" "));
-      el("text", { x: x(i), y: H - B + 32, "text-anchor": "middle", "class": "ink" }, svg, parts.slice(half).join(" "));
-    });
-    R.models.forEach(function (m) {
-      var pts = R.steps.map(function (st, i) { return [x(i), yS(LD[st][m]["MAE_$"])]; });
-      el("polyline", { points: pts.map(function (p) { return p.join(","); }).join(" "), fill: "none", stroke: MC[m], "stroke-width": 2.5 }, svg);
-      pts.forEach(function (p) { el("circle", { cx: p[0], cy: p[1], r: 4, fill: MC[m] }, svg); });
-    });
-    var last = R.steps[R.steps.length - 1], bestM = R.best;
-    var bp = [x(R.steps.length - 1), yS(LD[last][bestM]["MAE_$"])];
-    el("text", { x: bp[0] - 8, y: bp[1] + 16, "text-anchor": "end", "class": "ink" }, svg, bestM + " " + fmt$(LD[last][bestM]["MAE_$"]));
-
-    var tb = document.querySelector("#tbl-p3 tbody");
-    R.steps.forEach(function (st) {
-      var row = LD[st], bestModel = R.models.reduce(function (a, b) { return row[a]["MAE_$"] <= row[b]["MAE_$"] ? a : b; });
-      var tr = document.createElement("tr");
-      tr.innerHTML = "<td></td><td class='num'>" + R.n_features[st] + "</td>" + R.models.map(function (m) {
-        return "<td class='num'" + (m === bestModel ? " style='font-weight:600'" : "") + ">" + fmt$(row[m]["MAE_$"]) + (m === bestModel ? " ★" : "") + "</td>"; }).join("") +
-        "<td class='num'>" + Math.max.apply(null, R.models.map(function (m) { return row[m].R2_log; })).toFixed(3) + "</td>";
-      tr.firstChild.textContent = SHORT[st]; tb.appendChild(tr);
-    });
-
-    var cvb = document.querySelector("#tbl-p3cv tbody"), PD = {};
-    R.cv_paired.forEach(function (r) { PD[r.step] = r; });
-    R.cv_summary.forEach(function (r) {
-      var d = PD[r.step], tr = document.createElement("tr");
-      tr.innerHTML = "<td></td><td class='num'>" + fmt$(r.MAE_mean) + " ± " + Math.round(r.MAE_std) + "</td><td class='num'>" +
-        (d ? (d["mean_change_$"] < 0 ? "−$" : "+$") + Math.abs(d["mean_change_$"]).toFixed(2) : "–") + "</td><td class='num'>" + (d ? d.folds_improved + " of 5" : "–") + "</td>";
-      tr.firstChild.textContent = r.step.replace(/^\S+\s/, "").replace("+ location context (all)", "+ neighbours' market price");
-      if (d && d["mean_change_$"] < -5) tr.className = "best";
-      cvb.appendChild(tr);
-    });
-
-    var fam = Object.keys(R.family_importance).map(function (k) { return { k: k, v: R.family_importance[k] }; }).filter(function (r) { return r.v > 0.0005; });
-    $("ch-p3fam").setAttribute("viewBox", "0 0 440 " + (fam.length * 30 + 10));
-    hbar($("ch-p3fam"), fam.map(function (r) { return { label: r.k.replace(" (guests, beds, baths)", "").replace(" (neighbourhood, coordinates)", ""), v: r.v, text: r.v.toFixed(3), color: /Size|Amenities|Review|Property|Host and/.test(r.k) ? "var(--m-gb)" : /Landmarks|market/.test(r.k) ? "var(--m-ols)" : "var(--harbor)" }; }), { w: 440, left: 186, right: 50, rowH: 30 });
-
-    var cb = document.querySelector("#tbl-p3cold tbody");
-    R.cold_start.forEach(function (r) {
-      var tr = document.createElement("tr");
-      tr.innerHTML = "<td></td><td class='num'>" + r.listings + "</td><td class='num'>" + fmt$(r["MAE Phase 2 features"]) + "</td><td class='num'>" + fmt$(r["MAE Steps 1-2"]) + "</td><td class='num'>" + r["improvement_%"].toFixed(0) + "%</td>";
-      tr.firstChild.textContent = r.group; cb.appendChild(tr);
-    });
-    var lb = document.querySelector("#tbl-p3leak tbody");
-    R.leak_audit.forEach(function (r) {
-      var tr = document.createElement("tr"); tr.innerHTML = "<td class='mono'></td><td></td><td></td>";
-      tr.children[0].textContent = r.column; tr.children[1].textContent = r.evidence; tr.children[2].textContent = r.decision; lb.appendChild(tr);
-    });
-    var s0 = LD[R.steps[0]], sN = LD[last];
-    var b0 = Math.min.apply(null, R.models.map(function (m) { return s0[m]["MAE_$"]; }));
-    $("p3-headline").textContent = "Better data beat a better algorithm: " + Math.round((1 - sN[bestM]["MAE_$"] / b0) * 100) + "% less error.";
-  })();
-
-  /* ---------- phase 3b: market, text, photos ---------- */
-  (function () {
-    var R = P.phase3b; if (!R) return;
-    var tb = document.querySelector("#tbl-p3b tbody");
-    R.ladder.forEach(function (r, i) {
-      var ch = r["change vs previous"], tr = document.createElement("tr");
-      tr.innerHTML = "<td></td><td class='num'>" + r.features + "</td><td class='num'>$" + r["CV MAE ($/night)"].toFixed(2) + "</td><td class='num'>" +
-        (ch == null ? "–" : (ch < 0 ? "−$" : "+$") + Math.abs(ch).toFixed(2)) + "</td><td class='num'>" + (r["folds improved"] == null ? "–" : r["folds improved"] + " of 5") + "</td>";
-      tr.firstChild.textContent = r.rung.replace(/^\+ /, "+ ");
-      if (i === R.ladder.length - 1) tr.className = "best";
-      tb.appendChild(tr);
-    });
-    var NAMES = { asp_clean: "clean", asp_dirty: "dirty / smell", asp_noise: "noise", asp_quiet: "quiet", asp_spacious: "spacious",
-      asp_small: "small", asp_location: "location", asp_transit: "transit (the T)", asp_view: "view", asp_luxury: "luxury / modern", asp_host: "host", asp_problem: "problems" };
-    var rows = Object.keys(R.aspect_corr).map(function (k) { return { k: k, v: R.aspect_corr[k] }; }).sort(function (a, b) { return b.v - a.v; });
-    var svg = $("ch-asp"), W = 440, L = 130, Rr = 50, rowH = 26, T = 4;
-    svg.setAttribute("viewBox", "0 0 " + W + " " + (T + rows.length * rowH + 20));
-    var mx = Math.max.apply(null, rows.map(function (r) { return Math.abs(r.v); })), x = linScale(-mx, mx, L, W - Rr);
-    el("line", { x1: x(0), x2: x(0), y1: T, y2: T + rows.length * rowH, stroke: "var(--ink)", "stroke-width": 1 }, svg);
-    rows.forEach(function (r, i) {
-      var y = T + i * rowH, x0 = x(Math.min(0, r.v)), x1 = x(Math.max(0, r.v));
-      el("text", { x: L - 8, y: y + rowH / 2 + 4, "text-anchor": "end", "class": "ink" }, svg, NAMES[r.k] || r.k);
-      el("rect", { x: x0, y: y + 6, width: Math.max(1, x1 - x0), height: rowH - 12, rx: 2, fill: r.v >= 0 ? "var(--good)" : "var(--brick)" }, svg);
-      el("text", { x: r.v >= 0 ? x1 + 5 : x0 - 5, y: y + rowH / 2 + 4, "text-anchor": r.v >= 0 ? "start" : "end" }, svg, (r.v >= 0 ? "+" : "") + r.v.toFixed(2));
-    });
-    $("p3b-photos").textContent = Math.round(R.photo_coverage * 100) + "%";
-    if (R.models_available && R.models_available.text) {
-      $("p3b-limits-h").textContent = "Limits of this step";
-      $("p3b-dl").innerHTML = "<strong>Pretrained models ran.</strong> <span class='mono'>bge-small</span> read the descriptions and reviews, and <span class='mono'>CLIP ViT-B/32</span> read " + Math.round(R.photo_coverage * 100) + "% of cover photos (the rest no longer exist on Airbnb). Both are frozen, compressed to 16 numbers inside each fold, and fed to LightGBM. Their rows in the table above show what they add.";
-    }
-  })();
-
-  /* ---------- team merge ---------- */
-  (function () {
-    var R = P.team_merge; if (!R) return;
-    $("tm-rows").textContent = R.n_team_rows.toLocaleString("en-US");
-    $("tm-base").textContent = fmt$(R.base_cv_mae);
-    $("tm-opt").textContent = R.optimism_r2.toFixed(2);
-    var ST = {}; R.stress.forEach(function (r) { (ST[r.model] = ST[r.model] || {})[r.split] = r; });
-    var names = Object.keys(ST), svg = $("ch-tm-stress"), W = 480, L = 150, Rr = 46, rowH = 46, T = 4;
+    $("e-opt").textContent = optimism.toFixed(2);
+    var ST = {}; stress.forEach(function (r) { (ST[r.model] = ST[r.model] || {})[r.split] = r; });
+    var names = Object.keys(ST), svg = $("ch-stress"), W = 480, L = 150, R = 46, rowH = 46, T = 4;
     svg.setAttribute("viewBox", "0 0 " + W + " " + (T + names.length * rowH + 18));
-    var x = linScale(0.5, 0.9, L, W - Rr);
+    var x = linScale(0.5, 0.9, L, W - R);
     [0.5, 0.6, 0.7, 0.8, 0.9].forEach(function (v) { el("line", { x1: x(v), x2: x(v), y1: T, y2: T + names.length * rowH, "class": "grid" }, svg); el("text", { x: x(v), y: T + names.length * rowH + 14, "text-anchor": "middle" }, svg, v.toFixed(1)); });
     names.forEach(function (n, i) {
       var y = T + i * rowH;
@@ -1387,36 +855,92 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
         el("text", { x: x(v) + 5, y: y + t[2] + 12, "class": "ink" }, svg, v.toFixed(3));
       });
     });
-    var hb = document.querySelector("#tbl-h2h tbody"), best = Math.min.apply(null, R.h2h.map(function (r) { return r["host-grouped CV MAE ($)"]; }));
-    R.h2h.forEach(function (r) {
-      var tr = document.createElement("tr"); if (r["host-grouped CV MAE ($)"] === best) tr.className = "best";
-      tr.innerHTML = "<td></td><td></td><td class='num'>$" + r["host-grouped CV MAE ($)"].toFixed(2) + "</td>";
-      tr.children[0].textContent = r.features; tr.children[1].textContent = r.model; hb.appendChild(tr);
+  })();
+
+  /* ---------------- Stage 6 ---------------- */
+  (function () {
+    var Q = P.quarterly, box = $("qcards");
+    Q.quarters.forEach(function (q) {
+      var d = document.createElement("div"); d.className = "qcard";
+      d.innerHTML = "<span class='q'></span><span class='pill " + (q.priced ? "ok" : "no") + "'>" + (q.priced ? q.priced.toLocaleString("en-US") + " priced" : "no prices published") + "</span>" +
+        "<div class='row'><span>Listings</span><span>" + q.listings.toLocaleString("en-US") + "</span></div>" +
+        "<div class='row'><span>Median price</span><span>" + (q.actual_median ? fmt$(q.actual_median) : "–") + "</span></div>";
+      d.querySelector(".q").textContent = q.label; box.appendChild(d);
     });
-    var theirs = R.h2h.filter(function (r) { return /their 48/.test(r.features); }), ours = R.h2h.filter(function (r) { return /our/.test(r.features); });
-    var mt = Math.min.apply(null, theirs.map(function (r) { return r["host-grouped CV MAE ($)"]; })), mo = Math.min.apply(null, ours.map(function (r) { return r["host-grouped CV MAE ($)"]; }));
-    $("h2h-note").textContent = "Switching the feature set lowers the error by " + Math.round((1 - mo / mt) * 100) + "%; switching the model changes it by under a dollar. Features matter more than the algorithm.";
-    var ib = document.querySelector("#tbl-ideas tbody");
-    R.summary.filter(function (r) { return r.from !== "Ours"; }).forEach(function (r) {
-      var tr = document.createElement("tr"); tr.innerHTML = "<td></td><td></td><td></td><td></td>";
-      tr.children[0].textContent = r.element; tr.children[1].textContent = r.from; tr.children[3].textContent = r.evidence;
-      var chip = document.createElement("span"); chip.className = "chip " + (r.status === "Kept" || r.status === "Adopted" ? "use" : r.status === "Excluded" ? "target" : "drop");
-      chip.textContent = r.status; tr.children[2].appendChild(chip);
-      if (r.status === "Kept") tr.className = "best"; ib.appendChild(tr);
-    });
-    $("tm-merged").textContent = "Merged (base + kept ideas): " + fmt$(R.merged_cv_mae) + " vs " + fmt$(R.base_cv_mae) + ", lower in " + R.merged_folds_better + " of 5 folds.";
-    var mb = document.querySelector("#tbl-tm-models tbody"), bm = Math.min.apply(null, R.models.map(function (r) { return r["out MAE_$"]; }));
-    R.models.slice().sort(function (a, b) { return a["out MAE_$"] - b["out MAE_$"]; }).forEach(function (r) {
-      var tr = document.createElement("tr"); if (r.model === "LightGBM") tr.className = "best";
-      tr.innerHTML = "<td></td><td class='num'>" + r["in R2_log"].toFixed(3) + "</td><td class='num'>" + r["out R2_log"].toFixed(3) + "</td><td class='num'>" + r["overfit gap (R²)"].toFixed(3) + "</td><td class='num'>" + fmt$(r["out MAE_$"]) + "</td>";
-      tr.firstChild.textContent = r.model; mb.appendChild(tr);
+    var EX = {}; Q.experiments.forEach(function (r) { (EX[r.experiment] = EX[r.experiment] || {})[r.test] = r; });
+    rowsInto("#tbl-time tbody", [["June only", "June-only"], ["September only", "Sep-only"], ["Both, with season, tenure and zones", Q.final]].map(function (p) {
+      var r = EX[p[1]]["Sep 2026"]; return tr([{ t: p[0] }, { t: fmt$(r["MAE_$"]), num: true }, { t: fmtPct(r["bias_%"]), num: true }], p[1] === Q.final ? "best" : "");
+    }));
+    var W8 = Q.weights.slice().sort(function (a, b) { return a["Sep 2026"] - b["Sep 2026"]; });
+    var NW = { private_room: "Private room", hotel_room: "Hotel room", log_min_nights: "Minimum nights (log)", bedrooms: "Bedrooms", log_reviews: "Total reviews (log)",
+      reviews_per_month: "Reviews per month", host_size_band: "Host size band", availability_365: "Nights open", licensed: "STR license", dist_km: "Distance to centre (km)",
+      kw_luxury: "Title: modern", kw_view: "Title: view", kw_parking: "Title: parking" };
+    var svg = $("ch-weights"), W = 480, L = 186, R = 16, rowH = 25, T = 6;
+    svg.setAttribute("viewBox", "0 0 " + W + " " + (T + W8.length * rowH + 22));
+    var all = []; W8.forEach(function (r) { all.push(r["Jun 2026"], r["Sep 2026"]); });
+    var lo = Math.floor(Math.min.apply(null, all) / 20) * 20, hi = Math.ceil(Math.max.apply(null, all) / 20) * 20, x = linScale(lo, hi, L, W - R);
+    for (var v = lo; v <= hi; v += 20) { el("line", { x1: x(v), x2: x(v), y1: T, y2: T + W8.length * rowH, "class": "grid" }, svg); el("text", { x: x(v), y: T + W8.length * rowH + 16, "text-anchor": "middle" }, svg, (v > 0 ? "+" : "") + v + "%"); }
+    el("line", { x1: x(0), x2: x(0), y1: T, y2: T + W8.length * rowH, stroke: "var(--ink)", "stroke-width": 1 }, svg);
+    W8.forEach(function (r, i) {
+      var y = T + i * rowH + rowH / 2;
+      el("text", { x: L - 8, y: y + 4, "text-anchor": "end", "class": "ink" }, svg, NW[r.feature] || r.feature.replace("nb_", ""));
+      el("line", { x1: x(r["Jun 2026"]), x2: x(r["Sep 2026"]), y1: y, y2: y, stroke: "var(--muted)", "stroke-width": 2 }, svg);
+      el("circle", { cx: x(r["Jun 2026"]), cy: y, r: 5, fill: "var(--jun)" }, svg);
+      el("circle", { cx: x(r["Sep 2026"]), cy: y, r: 5, fill: "var(--sep)" }, svg);
     });
   })();
 
-  /* ---------- overfitting ---------- */
+  /* ---------------- Stage 7 ---------------- */
+  (function () {
+    var main = C.ladder.filter(function (r) { return !/^alt/.test(r.rung); }), alt = C.ladder.filter(function (r) { return /^alt/.test(r.rung); })[0];
+    var short = function (s) { return s.replace(/^\d+\. /, "").replace(/^alt\. /, ""); };
+    var svg = $("ch-ladder"), W = 480, Lm = 200, R = 56, rowH = 36, T = 4;
+    svg.setAttribute("viewBox", "0 0 " + W + " " + (T + main.length * rowH + 6));
+    var vals = main.map(function (r) { return r["CV MAE ($/night)"]; }), lo = Math.floor(Math.min.apply(null, vals) / 10) * 10 - 10, hi = Math.max.apply(null, vals) + 2;
+    var x = linScale(lo, hi, Lm, W - R);
+    main.forEach(function (r, i) {
+      var y = T + i * rowH, nn = /neural/.test(r.rung), tx = /classic/.test(r.rung);
+      var lab = short(r.rung).replace(", neural network", " (NN)").replace(", classic NLP", " (classic)");
+      el("text", { x: Lm - 8, y: y + rowH / 2 + 4, "text-anchor": "end", "class": "ink" }, svg, lab.length > 30 ? lab.slice(0, 29) + "…" : lab);
+      el("rect", { x: Lm, y: y + 7, width: Math.max(1, x(r["CV MAE ($/night)"]) - Lm), height: rowH - 14, rx: 2, fill: nn ? "var(--m-ols)" : tx ? "var(--m-lasso)" : "var(--harbor)" }, svg);
+      el("text", { x: x(r["CV MAE ($/night)"]) + 5, y: y + rowH / 2 + 4, "class": "ink" }, svg, "$" + r["CV MAE ($/night)"].toFixed(2));
+    });
+    rowsInto("#tbl-ladder tbody", C.ladder.map(function (r) {
+      var c = r["change vs previous rung"], f = r["folds improved"];
+      return tr([{ t: short(r.rung) + (/^alt/.test(r.rung) ? " (compared with rung 4)" : "") }, { t: r.features, num: true }, { t: "$" + r["CV MAE ($/night)"].toFixed(2), num: true },
+        { t: c == null ? "–" : sgn$(c), num: true }, { t: f == null ? "–" : f + " of 5", num: true }, { t: r["R² (log)"].toFixed(3), num: true }], r.rung === C.deployed ? "best" : "");
+    }));
+    var dep = L0[C.deployed], text4 = main.filter(function (r) { return /classic/.test(r.rung); })[0];
+    var nnT = main.filter(function (r) { return /text, neural/.test(r.rung); })[0], nnI = main.filter(function (r) { return /photo, neural/.test(r.rung); })[0];
+    var bestAll = C.ladder.reduce(function (a, b) { return a["CV MAE ($/night)"] <= b["CV MAE ($/night)"] ? a : b; });
+    var parts = [];
+    if (text4) parts.push("Classic text features change the error by " + sgn$(text4["change vs previous rung"]) + " a night (" + text4["folds improved"] + " of 5 folds).");
+    if (nnT) parts.push("The language model adds " + sgn$(nnT["change vs previous rung"]) + " on top (" + nnT["folds improved"] + " of 5).");
+    if (nnI) parts.push("The photo model adds " + sgn$(nnI["change vs previous rung"]) + " (" + nnI["folds improved"] + " of 5).");
+    if (alt) parts.push("Used instead of classic text, the two networks change the error by " + sgn$(alt["change vs previous rung"]) + " compared with the listing features alone.");
+    parts.push("The calculator runs the listing-feature model (" + "$" + dep["CV MAE ($/night)"].toFixed(2) + "): it needs only what a host can type, and no step passed the rule of at least $1 better in 4 of 5 folds that would justify loading a language or image model into the page. The best research setup reaches $" + bestAll["CV MAE ($/night)"].toFixed(2) + ".");
+    var passed = Object.keys(C.decision).filter(function (k) { return C.decision[k] === "deploy"; });
+    if (passed.length) parts[parts.length - 1] = "Steps that passed the rule (at least $1 better in 4 of 5 folds): " + passed.map(short).join(", ") + ". They need the model running in the page, so the calculator still runs the listing-feature model ($" + dep["CV MAE ($/night)"].toFixed(2) + ") until that is built.";
+    $("nn-head").textContent = nnT || nnI ? "Neural networks read text and photos well, but add little beyond the listing facts" : "Neural steps not run";
+    $("nn-text").textContent = parts.join(" ");
+    var NAMES = { asp_clean: "clean", asp_dirty: "dirty / smell", asp_noise: "noise", asp_quiet: "quiet", asp_spacious: "spacious", asp_small: "small", asp_location: "location",
+      asp_transit: "transit (the T)", asp_view: "view", asp_luxury: "luxury / modern", asp_host: "host", asp_problem: "problems" };
+    var rows = Object.keys(P.phase3b.aspect_corr).map(function (k) { return { k: k, v: P.phase3b.aspect_corr[k] }; }).sort(function (a, b) { return b.v - a.v; });
+    var s2 = $("ch-asp"), W2 = 440, L2 = 130, R2 = 50, rh = 26, T2 = 4;
+    s2.setAttribute("viewBox", "0 0 " + W2 + " " + (T2 + rows.length * rh + 20));
+    var mx = Math.max.apply(null, rows.map(function (r) { return Math.abs(r.v); })), x2 = linScale(-mx, mx, L2, W2 - R2);
+    el("line", { x1: x2(0), x2: x2(0), y1: T2, y2: T2 + rows.length * rh, stroke: "var(--ink)", "stroke-width": 1 }, s2);
+    rows.forEach(function (r, i) {
+      var y = T2 + i * rh, a0 = x2(Math.min(0, r.v)), a1 = x2(Math.max(0, r.v));
+      el("text", { x: L2 - 8, y: y + rh / 2 + 4, "text-anchor": "end", "class": "ink" }, s2, NAMES[r.k] || r.k);
+      el("rect", { x: a0, y: y + 6, width: Math.max(1, a1 - a0), height: rh - 12, rx: 2, fill: r.v >= 0 ? "var(--good)" : "var(--brick)" }, s2);
+      el("text", { x: r.v >= 0 ? a1 + 5 : a0 - 5, y: y + rh / 2 + 4, "text-anchor": r.v >= 0 ? "start" : "end" }, s2, (r.v >= 0 ? "+" : "") + r.v.toFixed(2));
+    });
+  })();
+
+  /* ---------------- Stage 8 ---------------- */
   (function () {
     var R = P.overfit; if (!R) return;
-    $("of-cv").textContent = fmt$(R.cv_mae);
     var MC = { "Ridge": "var(--m-lasso)", "Random forest": "var(--m-rf)", "Neural network (MLP)": "var(--m-ols)", "LightGBM": "var(--m-gb)" };
     var lg = $("of-lc-legend"), byM = {};
     R.learning_curve.forEach(function (r) { (byM[r.model] = byM[r.model] || []).push(r); });
@@ -1433,244 +957,209 @@ footer code { font-family: var(--font-data); font-size: 0.85rem; background: var
       el("polyline", { points: pts.map(function (p) { return p.join(","); }).join(" "), fill: "none", stroke: MC[m] || "var(--muted)", "stroke-width": 2.5 }, svg);
       pts.forEach(function (p) { el("circle", { cx: p[0], cy: p[1], r: 3.5, fill: MC[m] || "var(--muted)" }, svg); });
     });
-    var gb = document.querySelector("#tbl-of-gap tbody");
-    R.gap.slice().sort(function (a, b) { return a.heldout_MAE - b.heldout_MAE; }).forEach(function (r, i) {
-      var tr = document.createElement("tr"); if (i === 0) tr.className = "best";
-      tr.innerHTML = "<td></td><td class='num'>" + r.train_R2.toFixed(3) + "</td><td class='num'>" + r.heldout_R2.toFixed(3) + "</td><td class='num'>" + (r.train_R2 - r.heldout_R2).toFixed(3) + "</td><td class='num'>" + fmt$(r.heldout_MAE) + "</td>";
-      tr.firstChild.textContent = r.model; gb.appendChild(tr);
-    });
     var nb = $("of-noise");
-    [["Noise features that passed", R.noise.kept + " of " + R.noise.tested], ["Merge gain, honest (nested)", (R.nested.nested_change < 0 ? "−$" : "+$") + Math.abs(R.nested.nested_change).toFixed(2)]].forEach(function (t, i) {
+    [["Noise features that passed", R.noise.kept + " of " + R.noise.tested], ["Honest gain of the last ideas", sgn$(R.nested.nested_change)]].forEach(function (t, i) {
       var d = document.createElement("div"); d.className = "qprice"; d.dataset.active = i ? "true" : "false";
       d.innerHTML = "<span class='label'></span><span class='v'></span>"; d.querySelector(".label").textContent = t[0]; d.querySelector(".v").textContent = t[1]; nb.appendChild(d);
     });
-    $("of-noise-note").textContent = R.noise.tested + " features made of pure noise were run through the same keep rule used in the merge; the largest 'gain' from noise was $" + R.noise.max_gain.toFixed(2) + ". Choosing the ideas inside each training fold (nested) and scoring on untouched hosts, the merge changes the error by " + (R.nested.nested_change < 0 ? "−$" : "+$") + Math.abs(R.nested.nested_change).toFixed(2) + " a night (better in " + R.nested.folds_better + " of 5 folds), against " + (R.nested.non_nested_change < 0 ? "−$" : "+$") + Math.abs(R.nested.non_nested_change).toFixed(2) + " when chosen and scored on the same folds.";
-    var ob = document.querySelector("#tbl-of-oot tbody");
-    R.oot.forEach(function (r) {
-      var tr = document.createElement("tr");
-      tr.innerHTML = "<td></td><td class='num'>" + fmt$(r["Sep test MAE $"]) + "</td><td class='num'>" + fmtPct(r["median bias %"]) + "</td><td class='num'>" + r["80% range covers"].toFixed(0) + "%</td>";
-      tr.firstChild.textContent = r.model; ob.appendChild(tr);
-    });
-    var sb = document.querySelector("#tbl-of-seg tbody"), NAMES = { price_band: "Actual price", room: "Room type", reviews: "Reviews", min_stay: "Minimum stay" };
-    Object.keys(NAMES).forEach(function (k) {
-      var h = document.createElement("tr"); h.innerHTML = "<th colspan='5'></th>"; h.firstChild.textContent = NAMES[k]; sb.appendChild(h);
+    $("of-noise-note").textContent = R.noise.tested + " features of pure noise went through the keep rule; the largest apparent gain from noise was $" + R.noise.max_gain.toFixed(2) + ". Choosing the last feature ideas inside each training fold (nested) and scoring on untouched hosts, they change the error by " + sgn$(R.nested.nested_change) + " a night (better in " + R.nested.folds_better + " of 5 folds).";
+    rowsInto("#tbl-of-oot tbody", R.oot.map(function (r) { return tr([{ t: r.model.replace("trained on ", "") }, { t: fmt$(r["Sep test MAE $"]), num: true }, { t: fmtPct(r["median bias %"]), num: true }, { t: r["80% range covers"].toFixed(0) + "%", num: true }]); }));
+    var sb = document.querySelector("#tbl-of-seg tbody"), SN = { price_band: "Actual price", room: "Room type", reviews: "Reviews", min_stay: "Minimum stay" };
+    Object.keys(SN).forEach(function (k) {
+      var h = document.createElement("tr"); h.innerHTML = "<th colspan='5'></th>"; h.firstChild.textContent = SN[k]; sb.appendChild(h);
       var rows = R.segments[k]; if (k === "price_band") { var ord = ["cheapest 20%", "2nd", "middle", "4th", "priciest 20%"]; rows = rows.slice().sort(function (a, b) { return ord.indexOf(a[k]) - ord.indexOf(b[k]); }); }
       rows.forEach(function (r) {
-        var tr = document.createElement("tr");
-        tr.innerHTML = "<td></td><td class='num'>" + r.listings + "</td><td class='num'>" + fmt$(r.MAE) + "</td><td class='num' style='color:" + (Math.abs(r.bias_pct) >= 10 ? "var(--brick)" : "inherit") + "'>" + fmtPct(r.bias_pct) + "</td><td class='num'>" + r.within_20.toFixed(0) + "%</td>";
-        tr.firstChild.textContent = r[k]; sb.appendChild(tr);
+        var t = tr([{ t: r[k] }, { t: r.listings, num: true }, { t: fmt$(r.MAE), num: true }, { t: fmtPct(r.bias_pct), num: true }, { t: r.within_20.toFixed(0) + "%", num: true }]);
+        if (Math.abs(r.bias_pct) >= 10) t.children[3].style.color = "var(--brick)"; sb.appendChild(t);
       });
     });
   })();
 
-  /* ---------- map ---------- */
-  var hoodStats = {}, MERGE = P.hood_merge || {};
-  P.hood_stats.forEach(function (h) { hoodStats[h.neighbourhood] = h; });
-  var statName = function (n) { return MERGE[n] || n; };
+  /* ---------------- Next steps ---------------- */
+  (function () {
+    var lc = {}; P.overfit.learning_curve.forEach(function (r) { (lc[r.model] = lc[r.model] || {})[r.frac] = r.MAE; });
+    var fr = Object.keys(lc["LightGBM"]).map(Number).sort(), g = lc["LightGBM"][fr[fr.length - 2]] - lc["LightGBM"][fr[fr.length - 1]];
+    var items = [
+      "<strong>More rows before bigger models.</strong> LightGBM's error still drops by " + "$" + g.toFixed(2) + " over the last quarter of training data. More cities or more snapshots would help every model, and neural networks most.",
+      "<strong>Seasonality needs priced calendars.</strong> With two priced quarters the model learns one seasonal contrast; quarterly retraining keeps it current.",
+      "<strong>Watch the extremes.</strong> The cheapest listings are over-priced and the priciest under-priced; show the range, not only the point price.",
+      "<strong>Calculator inputs are honest by design:</strong> it asks which night is being priced, because the weekday is a real driver, and never asks for anything derived from the price."
+    ];
+    $("next-list").innerHTML = items.map(function (t) { return "<li>" + t + "</li>"; }).join("");
+  })();
+
+  /* ---------------- calculator ---------------- */
+  var hoodStats = {}; P.hood_stats.forEach(function (h) { hoodStats[h.neighbourhood] = h; });
+  var MERGE = C.hood_merge || {}, statName = function (n) { return MERGE[n] || n; };
   var mapSvg = $("map"), lat0 = 42.32, kx = Math.cos(lat0 * Math.PI / 180), SCALE = 2400;
   var bounds = { minX: -71.195, maxX: -70.98, minY: 42.225, maxY: 42.40 };
-  var px = function (lon) { return (lon - bounds.minX) * kx * SCALE; };
-  var py = function (lat) { return (bounds.maxY - lat) * SCALE; };
-  var mapW = px(bounds.maxX), mapH = py(bounds.minY);
-  mapSvg.setAttribute("viewBox", "0 0 " + mapW.toFixed(1) + " " + mapH.toFixed(1));
-  var medians = P.hood_stats.map(function (h) { return h.median; });
-  var mLo = Math.min.apply(null, medians), mHi = Math.max.apply(null, medians);
+  var px = function (lon) { return (lon - bounds.minX) * kx * SCALE; }, py = function (lat) { return (bounds.maxY - lat) * SCALE; };
+  mapSvg.setAttribute("viewBox", "0 0 " + px(bounds.maxX).toFixed(1) + " " + py(bounds.minY).toFixed(1));
+  var medians = P.hood_stats.map(function (h) { return h.median; }), mLo = Math.min.apply(null, medians), mHi = Math.max.apply(null, medians);
   $("ramp").style.background = "linear-gradient(90deg, color-mix(in oklab, var(--brick) 12%, var(--surface)), var(--brick))";
   $("ramp-lo").textContent = fmt$(mLo); $("ramp-hi").textContent = fmt$(mHi);
   var paths = {};
   P.geo.features.forEach(function (f) {
     var name = f.properties.name, d = "";
-    f.geometry.coordinates.forEach(function (poly) {
-      poly[0].forEach(function (p, i) { d += (i ? "L" : "M") + px(p[0]).toFixed(1) + "," + py(p[1]).toFixed(1); });
-      d += "Z";
-    });
-    var st = hoodStats[statName(name)], pct = st ? 12 + 88 * (Math.log(st.median) - Math.log(mLo)) / (Math.log(mHi) - Math.log(mLo)) : 0;
-    var p = el("path", { d: d, fill: st ? "color-mix(in oklab, var(--brick) " + pct.toFixed(0) + "%, var(--surface))" : "var(--line)" }, mapSvg);
-    el("title", {}, p, name + (MERGE[name] ? " (counted with " + MERGE[name] + ")" : "") + (st ? " · median " + fmt$(st.median) + " · " + st.count + " listings" : " · no listings"));
-    if (!st) p.setAttribute("class", "disabled");
-    p.dataset.name = name;
-    (paths[name] = paths[name] || []).push(p);
+    f.geometry.coordinates.forEach(function (poly) { poly[0].forEach(function (p, i) { d += (i ? "L" : "M") + px(p[0]).toFixed(1) + "," + py(p[1]).toFixed(1); }); d += "Z"; });
+    var st = hoodStats[statName(name)], usable = !!C.hood_ll[statName(name)];
+    var pct = st ? 12 + 88 * (Math.log(st.median) - Math.log(mLo)) / (Math.log(mHi) - Math.log(mLo)) : 0;
+    var p = el("path", { d: d, fill: st && usable ? "color-mix(in oklab, var(--brick) " + pct.toFixed(0) + "%, var(--surface))" : "var(--line)" }, mapSvg);
+    el("title", {}, p, name + (st ? " · median " + fmt$(st.median) : " · no listings"));
+    if (!usable) p.setAttribute("class", "disabled");
+    p.dataset.name = name; (paths[name] = paths[name] || []).push(p);
   });
   var pin = el("g", { "pointer-events": "none" }, mapSvg);
-  el("circle", { r: 9, fill: "var(--ink)", opacity: 0.18 }, pin);
-  el("circle", { r: 4.5, fill: "var(--ink)", stroke: "var(--surface)", "stroke-width": 1.5 }, pin);
+  el("circle", { r: 9, fill: "var(--ink)", opacity: 0.18 }, pin); el("circle", { r: 4.5, fill: "var(--ink)", stroke: "var(--surface)", "stroke-width": 1.5 }, pin);
 
-  mapSvg.addEventListener("click", function (ev) {
-    var t = ev.target;
-    if (t.tagName !== "path" || !hoodStats[statName(t.dataset.name)]) return;
-    var pt = mapSvg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
-    var loc = pt.matrixTransform(mapSvg.getScreenCTM().inverse());
-    state.lon = loc.x / (kx * SCALE) + bounds.minX;
-    state.lat = bounds.maxY - loc.y / SCALE;
-    state.neighbourhood = statName(t.dataset.name);
-    $("in-hood").value = state.neighbourhood;
-    update();
-  });
-
-  /* ---------- form state ---------- */
-  var hoodSel = $("in-hood");
-  P.neighbourhoods.forEach(function (n) {
-    if (!hoodStats[n]) return;
-    var o = document.createElement("option"); o.value = n; o.textContent = n; hoodSel.appendChild(o);
-  });
   var state = {};
-  var KW = ["kw_parking", "kw_luxury", "kw_view", "kw_amenities"];
+  var hoodSel = $("in-hood");
+  Object.keys(C.hood_ll).sort().forEach(function (n) { var o = document.createElement("option"); o.value = n; o.textContent = n; hoodSel.appendChild(o); });
+  var PROP_LABEL = { "rental unit": "Apartment (rental unit)", condo: "Condo", house: "House / townhouse", loft: "Loft", "serviced apt": "Serviced apartment", "guest suite": "Guest suite",
+    hotel: "Hotel / aparthotel room", "room in unit": "Room in an apartment", "room in house": "Room in a house", "b&b": "Bed and breakfast", other: "Other" };
+  C.property_groups.forEach(function (g) { var o = document.createElement("option"); o.value = g; o.textContent = PROP_LABEL[g] || g; $("in-prop").appendChild(o); });
+  var AM_LABEL = { am_free_parking: "Free parking", am_paid_parking: "Paid parking", am_washer_in_unit: "Washer in unit", am_dryer: "Dryer", am_dishwasher: "Dishwasher",
+    am_central_ac: "Central AC", am_any_ac: "Any AC", am_gym: "Gym", am_pool: "Pool", am_hot_tub: "Hot tub", am_elevator: "Elevator", am_workspace: "Workspace",
+    am_self_checkin: "Self check-in", am_balcony_patio: "Balcony / patio", am_view: "View", am_kitchen: "Kitchen", am_bathtub: "Bathtub", am_fireplace: "Fireplace",
+    am_ev_charger: "EV charger", am_pets: "Pets allowed", am_long_term: "Long stays", am_luggage: "Luggage drop", am_crib: "Crib", am_private_entry: "Private entrance",
+    am_backyard: "Backyard", am_bbq: "BBQ grill", am_tv: "TV", am_streaming: "Streaming", am_game_console: "Game console", am_sound_system: "Sound system" };
+  var AMS = Object.keys(C.amenities);
+  AMS.forEach(function (k) { var l = document.createElement("label"); l.innerHTML = "<input type='checkbox' id='" + k + "'> "; l.appendChild(document.createTextNode(AM_LABEL[k] || k)); $("in-am").appendChild(l); });
+  $("in-amcount").value = Math.round(C.defaults.am_count); $("in-desc").value = Math.round(C.defaults.desc_len);
 
-  function setQuarter(v) {
-    Array.prototype.forEach.call($("in-q").children, function (b) { b.setAttribute("aria-pressed", b.dataset.v === v ? "true" : "false"); });
-    state.quarter = v;
-  }
-  function setRoom(v) {
-    Array.prototype.forEach.call($("in-room").children, function (b) { b.setAttribute("aria-pressed", b.dataset.v === v ? "true" : "false"); });
-    state.room_type = v;
-  }
-  function placeAtHood(n) { state.neighbourhood = n; state.lat = hoodStats[n].lat; state.lon = hoodStats[n].lon; }
+  function seg(id, v) { Array.prototype.forEach.call($(id).children, function (b) { b.setAttribute("aria-pressed", b.dataset.v === v ? "true" : "false"); }); }
+  function place(n) { state.neighbourhood = n; state.lat = C.hood_ll[n][0]; state.lon = C.hood_ll[n][1]; }
   function readForm() {
-    state.bedrooms = +$("in-beds").value;
-    state.minimum_nights = Math.max(1, +$("in-min").value || 1);
-    state.availability_365 = +$("in-avail").value;
-    state.number_of_reviews = Math.max(0, +$("in-rev").value || 0);
-    state.reviews_per_month = Math.max(0, +$("in-rpm").value || 0);
-    state.number_of_reviews_ltm = Math.max(0, +$("in-ltm").value || 0);
-    state.host_listings = Math.max(1, +$("in-host").value || 1);
-    state.license = $("in-lic").value;
-    state.kw = {}; KW.forEach(function (k) { state.kw[k] = $(k).checked; });
-    state.tenure_q = +$("in-tenure").value;
-    state.days_since_review = state.number_of_reviews > 0 ? Math.max(0, +$("in-recent").value || 0) : 1095;
-    $("in-recent").disabled = state.number_of_reviews === 0;
+    var num = function (id, d) { var v = parseFloat($(id).value); return isNaN(v) ? d : v; };
+    state.property_group = $("in-prop").value; state.accommodates = num("in-guests", 2); state.bedrooms = num("in-beds-r", 1); state.beds = num("in-beds", 1);
+    state.baths = num("in-baths", 1); state.baths_shared = $("in-shared-bath").checked;
+    state.amenities = {}; AMS.forEach(function (k) { state.amenities[k] = $(k).checked; });
+    var nChecked = AMS.filter(function (k) { return state.amenities[k]; }).length;
+    state.am_count = Math.max(num("in-amcount", 45), nChecked);
+    state.title_kw = {}; ["kw_parking", "kw_luxury", "kw_view", "kw_amenities"].forEach(function (k) { state.title_kw[k] = $(k).checked; });
+    state.quote_dow = num("in-dow", 4); state.minimum_nights = num("in-min", 2); state.license = $("in-lic").value; state.availability_365 = num("in-avail", 180);
+    var hasRev = $("in-hasrev").checked;
+    state.number_of_reviews = hasRev ? Math.max(1, num("in-rev", 1)) : 0; state.reviews_per_month = num("in-rpm", 0); state.number_of_reviews_ltm = num("in-ltm", 0);
+    var sc = Math.min(5, Math.max(1, num("in-score", 4.8))); state.scores = { rating: sc, accuracy: sc, cleanliness: sc, checkin: sc, communication: sc, location: sc, value: sc };
+    state.months_since_first_review = num("in-first", 12); state.days_since_review = num("in-last", 30);
+    state.host_listings = num("in-host", 1); state.tenure_q = num("in-tenure", 0); state.desc_len = num("in-desc", 900);
+    state.superhost = $("in-superhost").checked; state.identity_verified = $("in-verified").checked;
     $("avail-v").textContent = state.availability_365;
+    $("rev-fields").classList.toggle("off", !hasRev);
+    Array.prototype.forEach.call($("rev-fields").querySelectorAll("input"), function (i) { i.disabled = !hasRev; });
   }
-
   var PRESETS = {
-    "new": { hood: "Fenway", room: "Entire home/apt", beds: 0, min: 2, avail: 300, rev: 0, rpm: 0, ltm: 0, host: 1, lic: "licensed", kw: ["kw_luxury"], tenure: 0, recent: 0 },
-    "room": { hood: "Jamaica Plain", room: "Private room", beds: 1, min: 1, avail: 250, rev: 80, rpm: 2.5, ltm: 25, host: 1, lic: "licensed", kw: [], tenure: 3, recent: 10 },
-    "monthly": { hood: "Back Bay", room: "Entire home/apt", beds: 1, min: 32, avail: 330, rev: 12, rpm: 0.4, ltm: 3, host: 40, lic: "none", kw: ["kw_amenities"], tenure: 2, recent: 60 },
-    "start": { hood: "South End", room: "Entire home/apt", beds: 2, min: 2, avail: 180, rev: 25, rpm: 1.5, ltm: 10, host: 1, lic: "licensed", kw: ["kw_luxury"], tenure: 3, recent: 20 }
+    start: { hood: "South End", room: "Entire home/apt", prop: "rental unit", guests: 4, br: 2, beds: 2, baths: 1, shared: false, am: ["am_washer_in_unit", "am_dryer", "am_dishwasher", "am_central_ac", "am_kitchen", "am_tv", "am_self_checkin", "am_workspace"], kw: ["kw_luxury"], q: "2026Q3", dow: 4, min: 2, lic: "licensed", avail: 180, rev: true, nrev: 25, rpm: 1.5, ltm: 10, score: 4.85, first: 24, last: 20, host: 1, tenure: 3, superhost: false },
+    "new": { hood: "Fenway", room: "Entire home/apt", prop: "rental unit", guests: 2, br: 0, beds: 1, baths: 1, shared: false, am: ["am_kitchen", "am_tv", "am_any_ac", "am_self_checkin"], kw: ["kw_luxury"], q: "2026Q3", dow: 4, min: 2, lic: "licensed", avail: 300, rev: false, nrev: 0, rpm: 0, ltm: 0, score: 4.8, first: 0, last: 0, host: 1, tenure: 0, superhost: false },
+    room: { hood: "Jamaica Plain", room: "Private room", prop: "room in house", guests: 2, br: 1, beds: 1, baths: 1, shared: true, am: ["am_kitchen", "am_workspace", "am_free_parking"], kw: [], q: "2026Q3", dow: 2, min: 1, lic: "licensed", avail: 250, rev: true, nrev: 80, rpm: 2.5, ltm: 25, score: 4.9, first: 40, last: 10, host: 1, tenure: 3, superhost: true },
+    monthly: { hood: "Back Bay", room: "Entire home/apt", prop: "serviced apt", guests: 2, br: 1, beds: 1, baths: 1, shared: false, am: ["am_gym", "am_elevator", "am_washer_in_unit", "am_dryer", "am_central_ac", "am_kitchen", "am_tv", "am_workspace"], kw: ["kw_amenities"], q: "2026Q3", dow: 2, min: 32, lic: "none", avail: 330, rev: true, nrev: 12, rpm: 0.4, ltm: 3, score: 4.6, first: 30, last: 60, host: 40, tenure: 2, superhost: false }
   };
   function applyPreset(k) {
     var p = PRESETS[k];
-    hoodSel.value = p.hood; placeAtHood(p.hood); setRoom(p.room);
-    $("in-beds").value = p.beds; $("in-min").value = p.min; $("in-avail").value = p.avail;
-    $("in-rev").value = p.rev; $("in-rpm").value = p.rpm; $("in-ltm").value = p.ltm; $("in-host").value = p.host; $("in-lic").value = p.lic;
-    KW.forEach(function (kw) { $(kw).checked = p.kw.indexOf(kw) >= 0; });
-    $("in-tenure").value = p.tenure; $("in-recent").value = p.recent;
+    hoodSel.value = p.hood; place(p.hood); seg("in-room", p.room); state.room_type = p.room; seg("in-q", p.q); state.quarter = p.q;
+    $("in-prop").value = p.prop; $("in-guests").value = p.guests; $("in-beds-r").value = p.br; $("in-beds").value = p.beds; $("in-baths").value = p.baths; $("in-shared-bath").checked = p.shared;
+    AMS.forEach(function (a) { $(a).checked = p.am.indexOf(a) >= 0; });
+    ["kw_parking", "kw_luxury", "kw_view", "kw_amenities"].forEach(function (a) { $(a).checked = p.kw.indexOf(a) >= 0; });
+    $("in-dow").value = p.dow; $("in-min").value = p.min; $("in-lic").value = p.lic; $("in-avail").value = p.avail; $("in-hasrev").checked = p.rev;
+    $("in-rev").value = Math.max(1, p.nrev); $("in-rpm").value = p.rpm; $("in-ltm").value = p.ltm; $("in-score").value = p.score; $("in-first").value = p.first; $("in-last").value = p.last;
+    $("in-host").value = p.host; $("in-tenure").value = p.tenure; $("in-superhost").checked = p.superhost;
     update();
   }
 
-  /* ---------- outputs ---------- */
   function drawRange(val, lo, hi) {
-    var svg = clear($("range-bar")), W = 400, med = hoodStats[state.neighbourhood].median;
+    var svg = clear($("range-bar")), W = 400, st = hoodStats[statName(state.neighbourhood)], med = st ? st.median : C.price_median;
     var a = Math.min(lo, med) * 0.85, b = Math.max(hi, med) * 1.1, x = logScale(a, b, 8, W - 8);
     el("rect", { x: 8, y: 22, width: W - 16, height: 6, rx: 3, fill: "var(--line)" }, svg);
     el("rect", { x: x(lo), y: 18, width: x(hi) - x(lo), height: 14, rx: 3, fill: "var(--harbor)", opacity: 0.3 }, svg);
     el("rect", { x: x(val) - 1.5, y: 12, width: 3, height: 26, fill: "var(--harbor)" }, svg);
     el("path", { d: "M" + x(med) + ",40 l-5,8 h10 z", fill: "var(--brick)" }, svg);
-    el("text", { x: x(lo), y: 10, "text-anchor": "start" }, svg, fmt$(lo));
-    el("text", { x: x(hi), y: 10, "text-anchor": "end" }, svg, fmt$(hi));
-    var mx = Math.min(Math.max(x(med), 60), W - 60);
-    el("text", { x: mx, y: 54, "text-anchor": "middle", fill: "var(--brick)", style: "fill: var(--brick)" }, svg, "area median " + fmt$(med));
+    el("text", { x: x(lo), y: 10, "text-anchor": "start" }, svg, fmt$(lo)); el("text", { x: x(hi), y: 10, "text-anchor": "end" }, svg, fmt$(hi));
+    el("text", { x: Math.min(Math.max(x(med), 60), W - 60), y: 54, "text-anchor": "middle", style: "fill: var(--brick)" }, svg, "area median " + fmt$(med));
   }
-
-  function drawModels(res, qv) {
-    var rows = ORDER.map(function (n) { return { label: n + (n === res.best ? " ★" : ""), v: res[n], text: fmt$(res[n]), color: COLOR[n], strong: false }; });
-    rows.push({ label: "Quarterly RF (" + QLABEL[state.quarter] + ")", v: qv, text: fmt$(qv), color: "var(--m-q)", strong: true });
-    var max = Math.max.apply(null, rows.map(function (r) { return r.v; })) * 1.05;
-    hbar($("out-models"), rows, { w: 420, left: 178, right: 52, rowH: 32, max: max });
-  }
-
-  function drawDrivers(x) {
-    var d = E.lassoDrivers(x), grouped = {};
-    d.forEach(function (r) {
-      var key = r.feature.indexOf("nb_") === 0 ? "Location: " + state.neighbourhood :
-        (r.feature === "latitude" || r.feature === "longitude" || r.feature === "dist_km") ? "Exact position" :
-        (r.feature === "log_min_nights" || r.feature === "monthly") ? "Minimum-stay rule" :
-        (r.feature === "log_reviews" || r.feature === "reviews_per_month" || r.feature === "number_of_reviews_ltm") ? "Review history" :
-        (r.feature === "bedrooms" || r.feature === "bedrooms_known") ? "Bedrooms" :
-        (r.feature === "licensed" || r.feature === "exempt") ? "License status" :
-        (r.feature === "host_size_band") ? "Host size" :
-        (r.feature === "private_room" || r.feature === "hotel_room" || r.feature === "shared_room") ? "Room type" : nice(r.feature);
-      grouped[key] = (grouped[key] || 0) + r.logpts;
-    });
-    var rows = Object.keys(grouped).map(function (k) { return { k: k, v: grouped[k] }; })
-      .filter(function (r) { return Math.abs(r.v) > 0.01; })
-      .sort(function (a, b) { return Math.abs(b.v) - Math.abs(a.v); }).slice(0, 7);
-    var maxAbs = Math.max.apply(null, rows.map(function (r) { return Math.abs(Math.exp(r.v) - 1); }).concat([0.1]));
-    var box = $("out-drivers"); box.innerHTML = "";
-    rows.forEach(function (r) {
-      var pct = (Math.exp(r.v) - 1) * 100, div = document.createElement("div");
-      div.className = "driver";
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  function drawLevers(base) {
+    var L = [], s = state;
+    function add(label, change, applies) { if (applies === false) return; var t = clone(s); change(t); var v = E.price(t).price; L.push({ label: label, d: v - base }); }
+    add("One more bedroom", function (t) { t.bedrooms = Math.min(6, t.bedrooms + 1); t.beds += 1; t.accommodates += 2; }, s.bedrooms < 6);
+    add("Sleeps 2 more guests", function (t) { t.accommodates += 2; t.beds += 1; });
+    add("Private instead of shared bathroom", function (t) { t.baths_shared = false; }, s.baths_shared);
+    add("Add in-unit washer and dryer", function (t) { t.amenities.am_washer_in_unit = true; t.amenities.am_dryer = true; t.am_count += 2; }, !s.amenities.am_washer_in_unit);
+    add("Add free parking", function (t) { t.amenities.am_free_parking = true; t.am_count += 1; }, !s.amenities.am_free_parking);
+    add("Add central AC", function (t) { t.amenities.am_central_ac = true; t.am_count += 1; }, !s.amenities.am_central_ac);
+    add("Become a superhost", function (t) { t.superhost = true; }, !s.superhost);
+    add("Get an STR license", function (t) { t.license = "licensed"; }, s.license !== "licensed");
+    add("Allow 1-night stays", function (t) { t.minimum_nights = 1; }, s.minimum_nights > 1);
+    add("Switch to monthly (30-night minimum)", function (t) { t.minimum_nights = 30; }, s.minimum_nights < 28);
+    add("Price a Saturday instead", function (t) { t.quote_dow = 5; }, s.quote_dow !== 5);
+    add("Price a Tuesday instead", function (t) { t.quote_dow = 1; }, s.quote_dow !== 1);
+    L.sort(function (a, b) { return Math.abs(b.d) - Math.abs(a.d); });
+    L = L.slice(0, 8);
+    var mx = Math.max.apply(null, L.map(function (r) { return Math.abs(r.d); }).concat([1]));
+    var box = $("out-levers"); box.innerHTML = "";
+    L.forEach(function (r) {
+      var div = document.createElement("div"); div.className = "driver";
       div.innerHTML = "<div class='name'><span></span><span class='bar'></span></div><span class='val'></span>";
-      div.querySelector(".name span").textContent = r.k;
-      var bar = div.querySelector(".bar");
-      bar.style.width = Math.max(2, Math.abs(pct / 100) / maxAbs * 100) + "%";
-      bar.style.background = pct >= 0 ? "var(--good)" : "var(--brick)";
-      div.querySelector(".val").textContent = (pct >= 0 ? "+" : "−") + Math.abs(pct).toFixed(0) + "%";
+      div.querySelector(".name span").textContent = r.label;
+      var bar = div.querySelector(".bar"); bar.style.width = Math.max(2, Math.abs(r.d) / mx * 100) + "%"; bar.style.background = r.d >= 0 ? "var(--good)" : "var(--brick)";
+      div.querySelector(".val").textContent = (r.d >= 0 ? "+" : "−") + "$" + Math.abs(Math.round(r.d));
       box.appendChild(div);
     });
   }
-
   function drawHoods() {
-    var rows = Object.keys(hoodStats).map(function (n) {
-      var L = Object.assign({}, state, { neighbourhood: n, lat: hoodStats[n].lat, lon: hoodStats[n].lon });
-      return { n: n, v: E.priceQuarter(L).price };
-    }).sort(function (a, b) { return b.v - a.v; });
-    var svg = $("out-hoods");
-    svg.setAttribute("viewBox", "0 0 420 " + (rows.length * 20 + 8));
-    hbar(svg, rows.map(function (r) { return { label: r.n, v: r.v, text: fmt$(r.v), color: r.n === state.neighbourhood ? "var(--brick)" : "var(--m-rf)", strong: r.n === state.neighbourhood }; }), { w: 420, left: 172, right: 50, rowH: 20, top: 4 });
+    var rows = Object.keys(C.hood_ll).map(function (n) { var t = clone(state); t.neighbourhood = n; t.lat = C.hood_ll[n][0]; t.lon = C.hood_ll[n][1]; return { n: n, v: E.price(t).price }; })
+      .sort(function (a, b) { return b.v - a.v; });
+    hbar($("out-hoods"), rows.map(function (r) { return { label: r.n, v: r.v, text: fmt$(r.v), color: r.n === state.neighbourhood ? "var(--brick)" : "var(--harbor)", strong: r.n === state.neighbourhood }; }), { w: 420, left: 172, right: 50, rowH: 20, top: 4 });
   }
-
   function update() {
     readForm();
     if (!E) return;
-    var res = E.priceAll(state), x = E.features(state), q = E.priceQuarter(state);
-    $("out-price").innerHTML = fmt$(q.price) + " <small>/ night</small>";
-    $("out-model-label").textContent = "Recommended nightly price · " + QLABEL[state.quarter] + " · quarterly model";
+    var r = E.price(state);
+    $("out-price").innerHTML = fmt$(r.price) + " <small>/ night</small>";
+    var DOW = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    $("out-model-label").textContent = "Recommended price · a " + DOW[state.quote_dow] + " in " + (state.quarter === "2026Q2" ? "summer" : "fall");
     var box = $("out-q"); box.innerHTML = "";
-    ["2026Q2", "2026Q3"].forEach(function (qc) {
-      var v = E.priceQuarter(Object.assign({}, state, { quarter: qc })).price, d = document.createElement("div");
-      d.className = "qprice"; d.dataset.active = qc === state.quarter ? "true" : "false";
-      d.innerHTML = "<span class='label'></span><span class='v'></span>";
-      d.querySelector(".label").textContent = QLABEL[qc]; d.querySelector(".v").textContent = fmt$(v);
-      box.appendChild(d);
+    [["2026Q2", "Summer (Jun)"], ["2026Q3", "Fall (Sep)"]].forEach(function (q) {
+      var t = clone(state); t.quarter = q[0]; var v = E.price(t).price, d = document.createElement("div");
+      d.className = "qprice"; d.dataset.active = q[0] === state.quarter ? "true" : "false";
+      d.innerHTML = "<span class='label'></span><span class='v'></span>"; d.querySelector(".label").textContent = q[1]; d.querySelector(".v").textContent = fmt$(v); box.appendChild(d);
     });
-    $("out-range-note").textContent = "80% of comparable listings would sit between " + fmt$(q.low) + " and " + fmt$(q.high) + " (based on the model's errors on unseen listings). Your location falls in zone " + Q.zones.names[q.zone] + ". The red marker shows the median for " + state.neighbourhood + ".";
-    Object.keys(paths).forEach(function (n) { var on = statName(n) === state.neighbourhood; paths[n].forEach(function (p) { p.setAttribute("class", (hoodStats[statName(n)] ? "" : "disabled") + (on ? " sel" : "")); if (on) p.parentNode.insertBefore(p, pin); }); });
+    $("out-range-note").textContent = "80% of comparable listings would sit between " + fmt$(r.low) + " and " + fmt$(r.high) + ", based on the model's errors on hosts it never saw. The red marker is the median for " + state.neighbourhood + ".";
+    Object.keys(paths).forEach(function (n) { var on = statName(n) === state.neighbourhood; paths[n].forEach(function (p) { p.setAttribute("class", (C.hood_ll[statName(n)] ? "" : "disabled") + (on ? " sel" : "")); if (on) p.parentNode.insertBefore(p, pin); }); });
     pin.setAttribute("transform", "translate(" + px(state.lon).toFixed(1) + "," + py(state.lat).toFixed(1) + ")");
-    drawRange(q.price, q.low, q.high); drawModels(res, q.price); drawDrivers(x); drawHoods();
+    drawRange(r.price, r.low, r.high); drawLevers(r.price); drawHoods();
   }
-
-  /* ---------- wire up ---------- */
-  hoodSel.addEventListener("change", function () { placeAtHood(hoodSel.value); update(); });
-  Array.prototype.forEach.call($("in-room").children, function (b) { b.addEventListener("click", function () { setRoom(b.dataset.v); update(); }); });
-  Array.prototype.forEach.call($("in-q").children, function (b) { b.addEventListener("click", function () { setQuarter(b.dataset.v); update(); }); });
-  setQuarter("2026Q3");
-
-  /* ---------- load the trained models (large file) without blocking the page ---------- */
-  function loadModels() {
-    var out = $("out-price");
-    out.innerHTML = "<span class='loading'>Loading the pricing models (about 2 MB)…</span>";
-    var sc = document.createElement("script");
-    sc.src = "models.js";
-    sc.onload = function () {
-      try { E = PricingEngine.create(P, window.PRICING_MODELS); update(); }
-      catch (err) { fail("The pricing models loaded but couldn't start."); }
-    };
-    sc.onerror = function () { fail("The pricing models didn't load. Check your connection and try again."); };
-    document.body.appendChild(sc);
-    function fail(msg) {
-      out.innerHTML = "";
-      var p = document.createElement("p"); p.className = "out-note"; p.textContent = msg;
-      var b = document.createElement("button"); b.type = "button"; b.className = "btn"; b.textContent = "Try again";
-      b.onclick = function () { sc.remove(); loadModels(); };
-      out.appendChild(p); out.appendChild(b);
-    }
-  }
+  mapSvg.addEventListener("click", function (ev) {
+    var t = ev.target; if (t.tagName !== "path" || !C.hood_ll[statName(t.dataset.name)]) return;
+    var pt = mapSvg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+    var loc = pt.matrixTransform(mapSvg.getScreenCTM().inverse());
+    state.lon = loc.x / (kx * SCALE) + bounds.minX; state.lat = bounds.maxY - loc.y / SCALE; state.neighbourhood = statName(t.dataset.name);
+    hoodSel.value = state.neighbourhood; update();
+  });
+  hoodSel.addEventListener("change", function () { place(hoodSel.value); update(); });
+  Array.prototype.forEach.call($("in-room").children, function (b) { b.addEventListener("click", function () { seg("in-room", b.dataset.v); state.room_type = b.dataset.v; update(); }); });
+  Array.prototype.forEach.call($("in-q").children, function (b) { b.addEventListener("click", function () { seg("in-q", b.dataset.v); state.quarter = b.dataset.v; update(); }); });
   $("calc-form").addEventListener("input", function (e) { if (e.target !== hoodSel) update(); });
+  $("calc-form").addEventListener("change", function (e) { if (e.target.type === "checkbox") update(); });
   $("calc-form").addEventListener("submit", function (e) { e.preventDefault(); });
   Array.prototype.forEach.call(document.querySelectorAll("[data-preset]"), function (b) { b.addEventListener("click", function () { applyPreset(b.dataset.preset); }); });
   applyPreset("start");
+
+  function loadModels() {
+    var out = $("out-price");
+    out.innerHTML = "<span class='loading'>Loading the model…</span>";
+    var sc = document.createElement("script"); sc.src = "models.js";
+    sc.onload = function () { try { E = PricingEngine.create(P, window.PRICING_MODELS); update(); } catch (err) { fail("The model loaded but couldn't start."); } };
+    sc.onerror = function () { fail("The model didn't load. Check your connection and try again."); };
+    document.body.appendChild(sc);
+    function fail(msg) {
+      out.innerHTML = ""; var p = document.createElement("p"); p.className = "out-note"; p.textContent = msg;
+      var b = document.createElement("button"); b.type = "button"; b.className = "btn"; b.textContent = "Try again";
+      b.onclick = function () { sc.remove(); loadModels(); }; out.appendChild(p); out.appendChild(b);
+    }
+  }
   loadModels();
 })();
 </script>
+
 </body>
 </html>

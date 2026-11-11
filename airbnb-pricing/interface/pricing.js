@@ -1,158 +1,116 @@
-/* Pricing engine: a JavaScript port of build_features() and the five trained models
-   from notebooks/boston_airbnb_pricing.ipynb. Works in the browser (window.PricingEngine)
-   and in Node (module.exports) so scripts/verify_js.js can check it against Python. */
+/* Pricing engine for the final model (LightGBM, 141 features), exported by
+   notebooks/boston_airbnb_final_pipeline.ipynb. Rebuilds the features from a listing typed into the
+   form with the same rules as src/pricing_features.py and src/enriched_features.py, then runs the trees.
+   Works in the browser (window.PricingEngine) and in Node (scripts/verify_js.js). */
 (function (root) {
   "use strict";
 
   /* P = window.PRICING (data.js), MP = window.PRICING_MODELS (models.js) */
   function create(P, MP) {
-    var F = P.features;
-    var idx = {};
-    F.forEach(function (f, i) { idx[f] = i; });
-    var CENTER = P.meta.center;
-    var KW = Object.keys(P.keywords);
+    var C = P.final, F = MP.final.features, TREES = MP.final.trees;
+    var CENTER = C.center, BANDS = C.host_bands, LM = C.landmarks, ZONES = C.zones;
+    var LM_NAMES = Object.keys(LM);
+    var KW = ["kw_parking", "kw_luxury", "kw_view", "kw_amenities"];
+    var SCORES = ["rating", "accuracy", "cleanliness", "checkin", "communication", "location", "value"];
+    var DPM = 365.25 / 12;
 
-    var HOST_BANDS = P.host_bands;               // upper bounds: 1 | 3 | 10 | 50 -> bands 0..4
-    var ROOM_MERGE = P.room_merge || {}, HOOD_MERGE = P.hood_merge || {};
-
-    /* Same rules as src/pricing_features.py (pre-check merges, caps and build_features).
-       listing: {neighbourhood, room_type, bedrooms, minimum_nights, number_of_reviews,
-       reviews_per_month, number_of_reviews_ltm, host_listings, availability_365,
-       license: "licensed"|"exempt"|"none", lat, lon, kw: {kw_parking: bool, ...}} */
-    function featureDict(L) {
-      var room = ROOM_MERGE[L.room_type] || L.room_type;
-      var hood = HOOD_MERGE[L.neighbourhood] || L.neighbourhood;
-      var mn = Math.min(365, L.minimum_nights > 0 ? L.minimum_nights : 1);
-      var reviews = Math.max(0, L.number_of_reviews || 0);
-      var rpm = reviews === 0 ? 0 : Math.min(15, Math.max(0, L.reviews_per_month || 0));
-      var host = Math.max(1, L.host_listings || 1), band = 0;
-      while (band < HOST_BANDS.length - 1 && host > HOST_BANDS[band + 1]) band++;
-      var d = {
-        bedrooms: L.bedrooms, bedrooms_known: 1,
-        private_room: room === "Private room" ? 1 : 0, hotel_room: room === "Hotel room" ? 1 : 0,
-        shared_room: room === "Shared room" ? 1 : 0,
-        log_min_nights: Math.log1p(mn), monthly: mn >= 28 ? 1 : 0,
-        log_reviews: Math.log1p(reviews), reviews_per_month: rpm,
-        number_of_reviews_ltm: Math.min(reviews, Math.max(0, L.number_of_reviews_ltm || 0)),
-        host_size_band: band, log_host_listings: Math.log1p(host),
-        availability_365: L.availability_365,
-        licensed: L.license === "licensed" ? 1 : 0, exempt: L.license === "exempt" ? 1 : 0,
-        dist_km: Math.sqrt(Math.pow((L.lat - CENTER[0]) * 111.0, 2) + Math.pow((L.lon - CENTER[1]) * 82.0, 2)),
-        latitude: L.lat, longitude: L.lon
-      };
-      KW.forEach(function (k) { d[k] = L.kw && L.kw[k] ? 1 : 0; });
-      d["nb_" + hood] = 1;
-      return d;
-    }
-    function features(L) {
-      var d = featureDict(L);
-      return F.map(function (f) { return d[f] || 0; });
-    }
-
-    // Trees are stored in pre-order (left child of node i is i+1); rebuild right-child indexes once.
-    function prepare(T) {
-      if (T.r) return T;
+    // right-child index for each internal node of a pre-order tree (left child = i + 1)
+    TREES.forEach(function (T) {
       var n = T.f.length, r = new Int32Array(n), stack = [];
       for (var i = 0; i < n; i++) {
         if (i > 0 && T.f[i - 1] === -1) r[stack.pop()] = i;
         if (T.f[i] !== -1) stack.push(i);
       }
       T.r = r;
-      return T;
-    }
-    ["Random Forest", "Gradient Boosting"].forEach(function (n) { MP.snapshot[n].trees.forEach(prepare); });
-    if (MP.quarterly) MP.quarterly.trees.forEach(prepare);
+    });
 
-    // sklearn compares float32 features against float64 thresholds
-    var f32 = Math.fround;
+    function km(lat, lon) { return [(lat - CENTER[0]) * 111.0, (lon - CENTER[1]) * 82.0]; }
+    function dist(a, b) { return Math.sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1])); }
+    var SUPPLY = {};
+    Object.keys(C.supply).forEach(function (q) { SUPPLY[q] = C.supply[q].map(function (p) { return km(p[0], p[1]); }); });
+
+    /* L: {neighbourhood, lat, lon, room_type, property_group, accommodates, bedrooms, beds, baths, baths_shared,
+          amenities: {am_*: bool}, am_count, title_kw: {kw_*: bool}, minimum_nights, availability_365,
+          license: "licensed"|"exempt"|"none", host_listings, superhost, identity_verified,
+          number_of_reviews, reviews_per_month, number_of_reviews_ltm, scores: {rating..value},
+          months_since_first_review, days_since_review, quarter: "2026Q2"|"2026Q3", tenure_q, quote_dow: 0-6 (Mon=0), desc_len} */
+    function featureDict(L) {
+      var room = C.room_merge[L.room_type] || L.room_type;
+      var hood = C.hood_merge[L.neighbourhood] || L.neighbourhood;
+      var mn = Math.min(365, L.minimum_nights > 0 ? L.minimum_nights : 1);
+      var nrev = Math.max(0, Math.round(L.number_of_reviews || 0)), hasRev = nrev > 0;
+      var rpm = hasRev ? Math.min(15, Math.max(0, L.reviews_per_month || 0)) : 0;
+      var host = Math.max(1, L.host_listings || 1), band = 0;
+      while (band < BANDS.length - 1 && host > BANDS[band + 1]) band++;
+      var p = km(L.lat, L.lon), dkm = dist(p, [0, 0]);
+      var d = {
+        bedrooms: Math.min(8, Math.max(0, Math.round(L.bedrooms))), bedrooms_known: 1,
+        private_room: room === "Private room" ? 1 : 0, hotel_room: room === "Hotel room" ? 1 : 0,
+        log_min_nights: Math.log1p(mn), log_reviews: Math.log1p(nrev), reviews_per_month: rpm,
+        number_of_reviews_ltm: Math.min(nrev, Math.max(0, Math.round(L.number_of_reviews_ltm || 0))),
+        host_size_band: band, availability_365: L.availability_365,
+        licensed: L.license === "licensed" ? 1 : 0, exempt: L.license === "exempt" ? 1 : 0,
+        dist_km: dkm, latitude: L.lat, longitude: L.lon,
+        q_sep: L.quarter === "2026Q3" ? 1 : 0, tenure_q: L.tenure_q || 0,
+        days_since_review: hasRev ? Math.min(1095, Math.max(0, L.days_since_review)) : 1095,
+        ring_core: dkm < 2 ? 1 : 0, ring_inner: dkm >= 2 && dkm <= 5 ? 1 : 0, ring_outer: dkm > 5 ? 1 : 0,
+        accommodates: L.accommodates, bedrooms_d: L.bedrooms, beds: L.beds, baths: L.baths, baths_shared: L.baths_shared ? 1 : 0,
+        am_count: Math.max(L.am_count, 0), has_review_scores: hasRev ? 1 : 0,
+        superhost: L.superhost ? 1 : 0, identity_verified: L.identity_verified ? 1 : 0, desc_len: L.desc_len
+      };
+      KW.forEach(function (k) { d[k] = L.title_kw && L.title_kw[k] ? 1 : 0; });
+      d["nb_" + hood] = 1;
+      var zone = 0, best = Infinity;
+      ZONES.forEach(function (c, z) { var dz = dist(p, c); if (dz < best) { best = dz; zone = z; } });
+      d["zone_" + zone] = 1;
+      C.property_groups.forEach(function (g) { d["prop_" + g.replace(/ /g, "_").replace("&", "and")] = g === L.property_group ? 1 : 0; });
+      Object.keys(C.amenities).forEach(function (k) { d[k] = L.amenities && L.amenities[k] ? 1 : 0; });
+      if (d.am_central_ac) d.am_any_ac = 1;
+      SCORES.forEach(function (s) { d["rs_" + s] = hasRev ? L.scores[s] : NaN; });
+      var nearest = Infinity, within2 = 0;
+      LM_NAMES.forEach(function (n) {
+        var dl = dist(p, km(LM[n][0], LM[n][1]));
+        d["d_" + n] = dl; nearest = Math.min(nearest, dl); if (dl < 2) within2++;
+      });
+      d.d_nearest_landmark = nearest; d.n_landmarks_2km = within2;
+      var s300 = 0, s1k = 0, S = SUPPLY[L.quarter] || [];
+      for (var i = 0; i < S.length; i++) { var ds = dist(p, S[i]); if (ds < 0.3) s300++; if (ds < 1.0) s1k++; }
+      d.supply_300m = s300; d.supply_1km = s1k;
+      d.months_since_first_review = hasRev ? Math.round(L.months_since_first_review * DPM) / DPM : NaN;
+      for (var w = 0; w < 7; w++) d["quote_dow_" + w] = w === L.quote_dow ? 1 : 0;
+      return d;
+    }
+    function features(L) {
+      var d = featureDict(L);
+      return F.map(function (f) { return f in d ? d[f] : 0; });
+    }
+
+    // LightGBM numerical split: missing type 0 = none (NaN -> 0), 1 = zero, 2 = NaN
     function tree(T, x) {
       var i = 0;
-      while (T.f[i] !== -1) i = f32(x[T.f[i]]) <= T.x[i] ? i + 1 : T.r[i];
+      while (T.f[i] !== -1) {
+        var v = x[T.f[i]], m = T.m[i], left;
+        if (v === null || v === undefined) v = NaN;
+        if (m === 2 && v !== v) left = T.d[i] === 1;
+        else {
+          if (v !== v) v = 0;
+          if (m === 1 && Math.abs(v) <= 1e-35) left = T.d[i] === 1;
+          else left = v <= T.x[i];
+        }
+        i = left ? i + 1 : T.r[i];
+      }
       return T.x[i];
     }
-
-    function linear(M, x) {
-      var s = M.intercept;
-      for (var i = 0; i < x.length; i++) s += M.coef[i] * (x[i] - M.mean[i]) / M.scale[i];
+    function predictLog(x) {
+      var s = 0;
+      for (var i = 0; i < TREES.length; i++) s += tree(TREES[i], x);
       return s;
     }
-
-    function baseline(M, x) {
-      var hood = null;
-      F.forEach(function (f, i) { if (f.indexOf("nb_") === 0 && x[i] === 1) hood = f; });
-      var room = x[idx.private_room] ? "private" : x[idx.hotel_room] ? "hotel" : "entire";
-      var key = hood + "|" + room;
-      if (key in M.cell) return M.cell[key];
-      return room in M.room ? M.room[room] : M.all;
+    function price(L) {
+      var v = Math.exp(predictLog(features(L)));
+      return { price: v, low: v * Math.exp(C.band_log[0]), high: v * Math.exp(C.band_log[1]) };
     }
-
-    var M = MP.snapshot;
-    // Each returns log(price)
-    var predictLog = {
-      "Baseline": function (x) { return baseline(M["Baseline"], x); },
-      "Linear Regression": function (x) { return linear(M["Linear Regression"], x); },
-      "Lasso": function (x) { return linear(M["Lasso"], x); },
-      "Random Forest": function (x) {
-        var s = 0, T = M["Random Forest"].trees;
-        for (var i = 0; i < T.length; i++) s += tree(T[i], x);
-        return s / T.length;
-      },
-      "Gradient Boosting": function (x) {
-        var s = M["Gradient Boosting"].init, T = M["Gradient Boosting"].trees;
-        for (var i = 0; i < T.length; i++) s += tree(T[i], x);
-        return s;
-      }
-    };
-
-    // Lasso explanation: contribution of each feature (in log points) vs the average listing
-    function lassoDrivers(x) {
-      var L = M["Lasso"], out = [];
-      for (var i = 0; i < x.length; i++) {
-        var c = L.coef[i] * (x[i] - L.mean[i]) / L.scale[i];
-        if (c !== 0) out.push({ feature: F[i], logpts: c });
-      }
-      return out;
-    }
-
-    function priceAll(listing) {
-      var x = features(listing), out = {};
-      Object.keys(predictLog).forEach(function (n) { out[n] = Math.exp(predictLog[n](x)); });
-      var best = P.meta.best;
-      out.low = out[best] * Math.exp(P.meta.band_log[0]);
-      out.high = out[best] * Math.exp(P.meta.band_log[1]);
-      out.best = best;
-      return out;
-    }
-
-    /* Phase 2: pooled quarterly model (snapshot features + time + zone).
-       Extra listing fields: quarter ("2026Q2" | "2026Q3"), tenure_q (0-3), days_since_review. */
-    var Q = P.quarterly && MP.quarterly ? P.quarterly : null;
-    var QT = Q ? MP.quarterly.trees : null;
-    function quarterlyFeatures(L) {
-      var x = features(L);
-      var dist = x[idx.dist_km];
-      var ky = (L.lat - CENTER[0]) * 111.0, kx = (L.lon - CENTER[1]) * 82.0, zone = 0, bestD = Infinity;
-      Q.zones.centers_km.forEach(function (c, z) { var d = (c[0] - ky) * (c[0] - ky) + (c[1] - kx) * (c[1] - kx); if (d < bestD) { bestD = d; zone = z; } });
-      var extra = {
-        q_sep: L.quarter === "2026Q3" ? 1 : 0, tenure_q: L.tenure_q || 0,
-        days_since_review: Math.min(1095, Math.max(0, L.days_since_review == null ? 1095 : L.days_since_review)),
-        ring_core: dist < 2 ? 1 : 0, ring_inner: dist >= 2 && dist <= 5 ? 1 : 0, ring_outer: dist > 5 ? 1 : 0
-      };
-      for (var z = 0; z < Q.n_zones; z++) extra["zone_" + z] = z === zone ? 1 : 0;
-      return Q.features.map(function (f) { return f in extra ? extra[f] : x[idx[f]]; });
-    }
-    function quarterlyLog(xq) {
-      var s = 0, T = QT;
-      for (var i = 0; i < T.length; i++) s += tree(T[i], xq);
-      return s / T.length;
-    }
-    function priceQuarter(L) {
-      var xq = quarterlyFeatures(L), v = Math.exp(quarterlyLog(xq));
-      return { price: v, low: v * Math.exp(Q.band_log[0]), high: v * Math.exp(Q.band_log[1]), zone: xq.slice(-Q.n_zones).indexOf(1) };
-    }
-
-    return { features: features, predictLog: predictLog, priceAll: priceAll, lassoDrivers: lassoDrivers, featureNames: F,
-             quarterlyFeatures: Q ? quarterlyFeatures : null, quarterlyLog: Q ? quarterlyLog : null, priceQuarter: Q ? priceQuarter : null };
+    return { features: features, predictLog: predictLog, price: price, featureNames: F };
   }
 
   if (typeof module !== "undefined" && module.exports) module.exports = { create: create };

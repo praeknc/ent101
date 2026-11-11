@@ -334,3 +334,27 @@ def build_merged_matrix(data_dir, zone_centers):
     X = pd.concat([pf.build_features(A, H), time_zone_features(A, data_dir / "quarterly", zone_centers),
                    detailed_features(A, props), landmark_features(A), density_features(A, S), kept], axis=1)
     return A, X, np.log(A["price"].values), A["host_id"].values
+
+
+# ---------------------------------------------------------------- features for arbitrary rows (calculator parity)
+
+def features_for_rows(A, supply, zone_centers, quarterly_dir, columns, tenure=None):
+    """Same feature pipeline as build_merged_matrix, for rows that already passed the pre-check
+    (e.g. a synthetic listing typed into the calculator). `columns` fixes the output order; any
+    column the rows don't produce (e.g. a weekday that never occurs) is filled with 0.
+    `tenure` overrides tenure_q (a new listing has no history in the snapshot files)."""
+    official = pd.read_csv(Path(quarterly_dir).parent / "neighbourhoods.csv")["neighbourhood"]
+    H = pf.model_neighbourhoods(official)
+    props = sorted(set(PROPERTY_GROUPS.values())) + ["other"]
+    scraped = pd.to_datetime(A["last_scraped"])
+    qci = pd.to_datetime(A["price_quote_checkin_date"])
+    kept = pd.DataFrame(index=A.index)
+    kept["months_since_first_review"] = (scraped - pd.to_datetime(A["first_review"])).dt.days / (365.25 / 12)
+    for d in range(7):
+        kept[f"quote_dow_{d}"] = (qci.dt.dayofweek == d).astype(float)
+    T = time_zone_features(A, quarterly_dir, zone_centers)
+    if tenure is not None:
+        T["tenure_q"] = tenure
+    X = pd.concat([pf.build_features(A, H), T, detailed_features(A, props), landmark_features(A),
+                   density_features(A, supply), kept], axis=1)
+    return X.reindex(columns=columns, fill_value=0.0)
