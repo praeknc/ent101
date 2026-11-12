@@ -78,7 +78,7 @@ SOURCES = [
     dict(provider="alibaba", url="https://www.alibabacloud.com/help/en/model-studio/pricing",
          render="yes", parser="generic", authoritative=True),
     dict(provider="baidu", url="https://intl.cloud.baidu.com/zh/doc/qianfan/s/Jm8r1826a-intl",
-         render="yes", parser="generic", authoritative=True),
+         render="yes", parser="long", authoritative=True),  # one row per 输入/输出 sub-item
 ]
 
 # URLs to look up on the Wayback Machine. Old pricing pages moved around, so
@@ -231,14 +231,23 @@ def html_blocks(html):
                     for tr in el.find_all("tr")]
             yield "table", [r for r in rows if any(r)]
         else:
-            yield "heading", el.get_text(" ", strip=True)
+            # strip icon-font glyphs (Unicode private-use area) from headings
+            yield "heading", re.sub(r'[\ue000-\uf8ff]', '', el.get_text(" ", strip=True)).strip()
 
 
 TIER_LINE = re.compile(r'^(?:#+\s*)?(Standard|Batch|Flex|Fast|Ultrafast|Priority)'
                        r'(?:\s+pricing data)?\s*$', re.I)
 
 
+GENERIC_HEADING = re.compile(r'^#+\s*(grouped\s+)?(\w+\s+)?pricing table data$|^#+\s*\w+\s+pricing data$', re.I)
+TOPIC_LINE = re.compile(r'^[A-Z][A-Za-z0-9 &/+()\-]{1,40}$')
+NOT_TOPIC = {"Speed"}
+
+
 def md_blocks(text):
+    """Markdown -> blocks. Besides '#' headings, yields ("tier", Standard/Batch/...)
+    and ("topic", ...) for the bare title lines OpenAI's pricing.md uses
+    ("Images", "Realtime & Audio", "Tools"...)."""
     table = []
     for line in text.splitlines():
         s = line.strip()
@@ -253,9 +262,13 @@ def md_blocks(text):
             table = []
         m = TIER_LINE.match(s)
         if m:
-            yield "heading", m.group(1)
+            yield "tier", m.group(1).title()
+        elif GENERIC_HEADING.match(s):
+            continue  # "### Grouped Pricing Table data" etc. carry no information
         elif s.startswith("#"):
             yield "heading", s.lstrip("# ").strip()
+        elif TOPIC_LINE.match(s) and s not in NOT_TOPIC:
+            yield "topic", s
     if table:
         yield "table", table
 
@@ -271,7 +284,8 @@ def blocks_for(content):
 # parsers
 # --------------------------------------------------------------------------
 # column synonyms: 2023-era OpenAI pages used "Prompt" / "Completion"
-COL_KEYS = {"input": ("input", "prompt"), "output": ("output", "completion")}
+COL_KEYS = {"input": ("input", "prompt"), "output": ("output", "completion"),
+            "model": ("model",), "modality": ("modality",)}
 
 
 def _is_col(h, key):
@@ -293,9 +307,14 @@ ARITH_RE = re.compile(r'×|[0-9]\s*\*\s*\$|/\s*1,?000,?000\b')  # worked-example
 
 def parse_generic(content, ctx):
     recs, section, header, last_name = [], "", None, ""
+    topic, tier = "", ""
     for kind, payload in blocks_for(content):
-        if kind == "heading":
-            section, header = payload, None
+        if kind in ("heading", "topic"):
+            topic, tier = payload, ""
+        elif kind == "tier":
+            tier = payload
+        if kind != "table":
+            section = " / ".join(x for x in (topic, tier) if x)
             continue
         header = None
         other_header = False  # table has a header, but not an Input/Output one
@@ -316,7 +335,8 @@ def parse_generic(content, ctx):
             if any(ARITH_RE.search(c) for c in cells):
                 continue
             reasons = []
-            name = cells[0].split("\n")[0].strip()
+            mcol = _pick(header, "model", exclude=()) or 0  # "Category | Model | ..." tables
+            name = cells[mcol].split("\n")[0].strip() if mcol < len(cells) else ""
             if not name or parse_price(name):
                 name = (last_name + " [continuation]") if last_name else ""
                 # rowspan'd name cell: row is missing leading cells -> realign
@@ -347,8 +367,11 @@ def parse_generic(content, ctx):
                 reasons.append("blank model name (rowspan?)")
             m = PROMPT_TIER_RE.search(" ".join(cells))
             if m:
-                tier = f"prompt {m.group(1)} {m.group(2)} tokens"
-                name = name.replace(" [continuation]", "") + f" ({tier})"
+                name = (name.replace(" [continuation]", "")
+                        + f" (prompt {m.group(1)} {m.group(2)} tokens)")
+            qcol = _pick(header, "modality", exclude=())
+            if qcol is not None and qcol < len(cells) and cells[qcol]:
+                name += f" [{cells[qcol]}]"
             recs.append(dict(
                 provider=ctx["provider"], model=name, section=section,
                 input_per_1m=per_1m(pin[0], unit), output_per_1m=per_1m(pout[0], unit),
@@ -400,7 +423,78 @@ def parse_gemini(content, ctx):
     return recs
 
 
-PARSERS = {"generic": parse_generic, "gemini": parse_gemini}
+LONG_IN = re.compile(r'^(输入|input)', re.I)
+LONG_OUT = re.compile(r'^(输出|output)', re.I)
+BILLING_HEADINGS = ("按量后付费", "预付费", "后付费", "pay-as-you-go")
+
+
+def _long_unit(text):
+    """'美元/百万tokens' -> ('USD','1M'); '元/千tokens' -> ('CNY','1K')."""
+    cur = "USD" if re.search(r'美元|USD|\$', text) else ("CNY" if re.search(r'元|CNY|RMB|¥|￥', text) else "")
+    unit = "1M" if re.search(r'百万|1M|million', text, re.I) else ("1K" if re.search(r'千|1K', text) else "")
+    return cur, unit
+
+
+def parse_long(content, ctx):
+    """Long-format tables (Baidu Qianfan): one row per sub-item, rowspan'd model
+    cells, bare-number price and a separate unit column, e.g.
+      [model, version, service, '输入', '1.4', '美元/百万tokens']
+      ['输出', '5.6', '美元/百万tokens']"""
+    recs, section, model = [], "", ""
+    acc = {}  # (section, model) -> {"in": (val, cur, unit, raw), "out": ...}
+    order = []
+    for kind, payload in blocks_for(content):
+        if kind == "heading":
+            if payload in BILLING_HEADINGS and section:
+                section = section.split(" / ")[0] + " / " + payload
+            else:
+                section = payload
+            continue
+        for cells in payload:
+            # find the sub-item label followed by a bare number
+            for i in range(len(cells) - 1):
+                lab = cells[i].strip()
+                if not (LONG_IN.match(lab) or LONG_OUT.match(lab) or "缓存" in lab
+                        or "cache" in lab.lower()):
+                    continue
+                num = re.fullmatch(r'[0-9][0-9,]*(?:\.[0-9]+)?', cells[i + 1].strip())
+                if not num:
+                    continue
+                if i >= 1:  # row carries the model cells
+                    model = cells[1] if i >= 2 and cells[1] else cells[0]
+                if "缓存" in lab or "cache" in lab.lower():
+                    break  # cached-input price: not captured
+                cur, unit = _long_unit(" ".join(cells[i + 2:]))
+                key = (section, model)
+                if key not in acc:
+                    acc[key] = {}
+                    order.append(key)
+                acc[key]["in" if LONG_IN.match(lab) else "out"] = (
+                    float(num.group(0).replace(",", "")), cur, unit,
+                    " | ".join(c.replace("\n", " ") for c in cells))
+                break
+    for key in order:
+        d = acc[key]
+        if "in" not in d or "out" not in d:
+            continue
+        (vin, cin, uin, rin), (vout, cout, uout, rout) = d["in"], d["out"]
+        reasons = []
+        if not (uin or uout):
+            reasons.append("per-unit not stated; assumed 1M")
+        if not (cin or cout):
+            reasons.append("currency not stated")
+        if cin and cout and cin != cout:
+            reasons.append("currency mismatch")
+        recs.append(dict(
+            provider=ctx["provider"], model=key[1], section=key[0],
+            input_per_1m=per_1m(vin, uin), output_per_1m=per_1m(vout, uout or uin),
+            currency=cin or cout, unit_detected=uin or uout or "1M",
+            needs_review=bool(reasons), review_reason="; ".join(reasons),
+            raw_row=f"IN: {rin} || OUT: {rout}"))
+    return recs
+
+
+PARSERS = {"generic": parse_generic, "gemini": parse_gemini, "long": parse_long}
 
 
 def stamp_rows(recs, ctx):
@@ -495,6 +589,14 @@ def run_history(args):
     since = args.since if len(args.since) > 4 else args.since + "-01"
     until = args.until if len(args.until) > 4 else args.until + "-12"
     total = 0
+    try:  # one quick probe so an unreachable archive fails in seconds, not minutes
+        SESSION.get("https://web.archive.org/cdx/search/cdx",
+                    params={"url": "example.com", "limit": "1"}, timeout=30)
+    except requests.RequestException as e:
+        print(f"Wayback Machine unreachable from this network ({type(e).__name__}); "
+              "run history mode from another network.")
+        gap_report(args.provider or list(HISTORY), int(since[:4]), int(until[:4]))
+        return
     for provider, urls in HISTORY.items():
         if args.provider and provider not in args.provider:
             continue
