@@ -124,9 +124,9 @@ def parse_price(text):
     val = float((m.group(1) or m.group(2)).replace(",", ""))
     cur = "CNY" if re.search(r'[¥￥]|RMB|CNY|元', text) else "USD"
     t = text.lower()
-    if re.search(r'1m|mtok|million|百万', t):
+    if re.search(r'1\s?m\b|mtok|million|百万', t):
         unit = "1M"
-    elif re.search(r'1k|千|per 1,?000', t):
+    elif re.search(r'1\s?k\b|千|per 1,?000\b', t):
         unit = "1K"
     else:
         unit = ""
@@ -591,9 +591,12 @@ def cdx_snapshots(url, since, until, collapse="timestamp:6"):
     return rows[1:] if rows else []
 
 
+FIELD_WORDS = {"price", "pricing", "prices", "usage", "model", "input", "output",
+               "training", "resolution", "cached input", "batch", "standard"}
 CAND_FIELDS = ["provider", "snapshot", "url", "context", "line"]
 CAND_PRICE = re.compile(r'(US\$|\$|¥|￥)\s*[0-9]')
 CAND_UNIT = re.compile(r'token|1K|1M|million|千|百万|characters|/\s*image|/\s*min', re.I)
+JSON_NAME = re.compile(r'\\?"(?:name|title|model|modelName|displayName)\\?"\s*:\s*\\?"([^"\\]{2,60})')
 RAW_PRICE = re.compile(r'\$\s?[0-9]+(?:\.[0-9]+)?\s*(?:/|per)\s*1\s?[KkMm]\s*tokens?')
 
 
@@ -607,7 +610,11 @@ def text_candidates(html):
     soup = BeautifulSoup(html, "lxml")
     for t in soup(["script", "style", "noscript"]):
         t.decompose()
+    for h in soup.find_all(["h1", "h2", "h3", "h4", "h5"]):
+        # mark headings so the nearest one is kept as context
+        h.replace_with(soup.new_string("\n§§ " + h.get_text(" ", strip=True) + "\n"))
     lines = [l.strip() for l in soup.get_text("\n").splitlines() if l.strip()]
+    lines = [l for l in lines if l != "§§"]
     out, seen = [], set()
     for i, line in enumerate(lines):
         if not CAND_PRICE.search(line):
@@ -619,23 +626,47 @@ def text_candidates(html):
             if not (CAND_UNIT.search(nxt) and len(nxt) <= 30):
                 continue
             text = f"{line} {nxt}"
-        ctx = []
-        for prev in reversed(lines[max(0, i - 8):i]):
+        # context = nearest heading > up to 2 name labels > nearest field label
+        heading, names, field = "", [], ""
+        for prev in reversed(lines[max(0, i - 60):i]):
+            if prev.startswith("§§ "):
+                heading = prev[3:].strip()
+                break
+        for prev in reversed(lines[max(0, i - 14):i]):
+            if prev.startswith("§§ "):
+                break  # don't cross into the previous section
             if CAND_PRICE.search(prev) or len(prev) > 60:
                 continue
+            if prev.endswith(".") and " " in prev:
+                continue  # a description sentence, not a label
             if (CAND_UNIT.search(prev) and len(prev) <= 30) or re.match(r'^(/|per\b)', prev):
                 continue  # a unit fragment ("/ 1K tokens"), not a label
-            ctx.insert(0, prev)
-            if len(ctx) == 3:
+            if prev.endswith(":"):  # inline label tied to this price ("Cached input:")
+                field = field or prev.rstrip(":")
+                continue
+            if prev.lower().rstrip("*") in FIELD_WORDS:
+                continue  # column-header word: not positional, so don't attach it
+            names.insert(0, prev)
+            if len(names) == 2:
                 break
+        ctx = [x for x in [heading] + names if x]
+        ctx = [x for k, x in enumerate(ctx) if x not in ctx[:k]]
+        if field:
+            ctx.append(f"[{field}]")
         key = (" > ".join(ctx), text[:300])
         if key not in seen:
             seen.add(key)
             out.append(dict(context=key[0], line=key[1]))
     if not out:  # client-rendered: prices only inside embedded JSON
         for m in RAW_PRICE.finditer(html):
-            pre = re.sub(r'<[^>]+>|\\[nt"]|["{}]', " ", html[max(0, m.start() - 120):m.start()])
-            key = (" ".join(pre.split())[-80:], m.group(0))
+            before = html[max(0, m.start() - 3000):m.start()]
+            names = [n for n in JSON_NAME.findall(before)
+                     if n.lower() not in ("price", "pricing", "prices")]
+            label = re.search(r'(?:\\n|\n|\s|^)([A-Za-z][A-Za-z ]{1,25}):?\s*(?:\\"|")?\s*$',
+                              re.sub(r'\\[nt]', "\n", before[-60:]))
+            ctx = " > ".join(x for x in (names[-1] if names else "",
+                                         label.group(1).strip() if label else "") if x)
+            key = (ctx, m.group(0))
             if key not in seen:
                 seen.add(key)
                 out.append(dict(context=key[0], line=key[1]))
