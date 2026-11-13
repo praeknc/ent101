@@ -604,7 +604,7 @@ def text_candidates(html):
 def run_history(args):
     since = args.since if len(args.since) > 4 else args.since + "-01"
     until = args.until if len(args.until) > 4 else args.until + "-12"
-    total = 0
+    total = fails = 0
     try:  # one quick probe so an unreachable archive fails in seconds, not minutes
         SESSION.get("https://web.archive.org/cdx/search/cdx",
                     params={"url": "example.com", "limit": "1"}, timeout=30)
@@ -634,15 +634,20 @@ def run_history(args):
                     continue
                 snap_url = f"https://web.archive.org/web/{ts}id_/{original}"
                 try:
-                    r = http_get(snap_url, timeout=90, tries=5, backoff=15)
-                except RateLimited as e:
-                    print(f"    {ts}: still rate-limited ({e}); cooling down 5 min. "
-                          "Re-run later to fill it (saved snapshots are skipped).")
-                    time.sleep(300)
-                    continue
+                    r = http_get(snap_url, timeout=90, tries=4, backoff=15)
+                    fails = 0
                 except Exception as e:
+                    fails += 1
                     print(f"    {ts}: fetch failed ({e})")
-                    time.sleep(WAYBACK_DELAY)
+                    if fails >= 2:
+                        # Wayback blocks an IP that keeps going while rate-limited;
+                        # every further request extends the block. Stop now.
+                        print("\nSTOPPED: web.archive.org is refusing this IP (rate limit "
+                              "block). Wait ~1 hour without visiting archive.org, then "
+                              "re-run the same command; saved snapshots are skipped.")
+                        gap_report(args.provider or list(HISTORY), int(since[:4]), int(until[:4]))
+                        return
+                    time.sleep(60)
                     continue
                 html = r.content.decode("utf-8", errors="replace")
                 path, sha = save_snapshot(provider, snap_url, html, "html", "wayback",
