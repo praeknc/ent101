@@ -17,6 +17,7 @@ USAGE
   python scrape_ai_pricing.py live --provider openai anthropic
   python scrape_ai_pricing.py history --since 2023-01 --until 2026-06
   python scrape_ai_pricing.py history --provider openai --limit 12
+  python scrape_ai_pricing.py reparse        # re-extract from saved pages, offline
 
 OUTPUT (./pricing_data/)
   raw/<provider>/<timestamp>.html|md   untouched page as fetched
@@ -590,15 +591,55 @@ def cdx_snapshots(url, since, until, collapse="timestamp:6"):
     return rows[1:] if rows else []
 
 
+CAND_FIELDS = ["provider", "snapshot", "url", "context", "line"]
+CAND_PRICE = re.compile(r'(US\$|\$|¥|￥)\s*[0-9]')
+CAND_UNIT = re.compile(r'token|1K|1M|million|千|百万|characters|/\s*image|/\s*min', re.I)
+RAW_PRICE = re.compile(r'\$\s?[0-9]+(?:\.[0-9]+)?\s*(?:/|per)\s*1\s?[KkMm]\s*tokens?')
+
+
 def text_candidates(html):
+    """Price-looking lines from a page, each with `context`: the nearest preceding
+    non-price labels (model name / heading), so a bare '$5.00 / 1M input tokens'
+    can be tied to its model. Handles units split onto the next line
+    ('$0.0200' + '/ 1K tokens'), drops the page's duplicate (desktop/mobile)
+    copies, and falls back to scanning raw HTML/JSON when the visible text has
+    no prices (client-rendered pages)."""
     soup = BeautifulSoup(html, "lxml")
-    out = []
-    for line in soup.get_text("\n").splitlines():
-        line = line.strip()
-        if (re.search(r'(US\$|\$|¥|￥)\s*[0-9]', line)
-                and re.search(r'token|1K|1M|million|千|百万', line, re.I)):
-            out.append(line[:300])
-    return out[:200]
+    for t in soup(["script", "style", "noscript"]):
+        t.decompose()
+    lines = [l.strip() for l in soup.get_text("\n").splitlines() if l.strip()]
+    out, seen = [], set()
+    for i, line in enumerate(lines):
+        if not CAND_PRICE.search(line):
+            continue
+        text = line
+        if not CAND_UNIT.search(line):
+            # unit on its own short line right after the price ("$0.03", "/ 1K tokens")
+            nxt = lines[i + 1] if i + 1 < len(lines) else ""
+            if not (CAND_UNIT.search(nxt) and len(nxt) <= 30):
+                continue
+            text = f"{line} {nxt}"
+        ctx = []
+        for prev in reversed(lines[max(0, i - 8):i]):
+            if CAND_PRICE.search(prev) or len(prev) > 60:
+                continue
+            if (CAND_UNIT.search(prev) and len(prev) <= 30) or re.match(r'^(/|per\b)', prev):
+                continue  # a unit fragment ("/ 1K tokens"), not a label
+            ctx.insert(0, prev)
+            if len(ctx) == 3:
+                break
+        key = (" > ".join(ctx), text[:300])
+        if key not in seen:
+            seen.add(key)
+            out.append(dict(context=key[0], line=key[1]))
+    if not out:  # client-rendered: prices only inside embedded JSON
+        for m in RAW_PRICE.finditer(html):
+            pre = re.sub(r'<[^>]+>|\\[nt"]|["{}]', " ", html[max(0, m.start() - 120):m.start()])
+            key = (" ".join(pre.split())[-80:], m.group(0))
+            if key not in seen:
+                seen.add(key)
+                out.append(dict(context=key[0], line=key[1]))
+    return out[:400]
 
 
 def run_history(args):
@@ -663,9 +704,9 @@ def run_history(args):
                 except Exception as e:
                     print(f"    {ts}: parse error {e}")
                 append_csv(HIST_CSV, recs, FIELDS)
-                cands = [dict(provider=provider, snapshot=ts, url=snap_url, line=l)
-                         for l in text_candidates(html)]
-                append_csv(CAND_CSV, cands, ["provider", "snapshot", "url", "line"])
+                cands = [dict(provider=provider, snapshot=ts, url=snap_url, **c)
+                         for c in text_candidates(html)]
+                append_csv(CAND_CSV, cands, CAND_FIELDS)
                 total += 1
                 print(f"    {ts}: {len(recs)} table rows, {len(cands)} candidate lines")
                 time.sleep(WAYBACK_DELAY)
@@ -673,6 +714,45 @@ def run_history(args):
     gap_report(args.provider or list(HISTORY), int(since[:4]), int(until[:4]))
     print("Old pages rarely have clean tables: use history_candidates.csv + raw HTML "
           "to hand-verify each historical price.")
+
+
+def run_reparse(args):
+    """Rebuild prices_history.csv and history_candidates.csv from the Wayback
+    pages already saved in raw/ - no network. Use after a parser change."""
+    urls = {}
+    if MANIFEST.exists():
+        for l in MANIFEST.open(encoding="utf-8"):
+            m = json.loads(l)
+            urls[Path(m["file"]).name] = (m["url"], m["sha256"])
+    files = sorted(RAW.glob("*/wb_*.html"))
+    for f in (HIST_CSV, CAND_CSV):
+        if f.exists():
+            f.replace(f.with_suffix(".csv.bak"))
+    n_rows = n_cands = 0
+    for f in files:
+        provider, ts = f.parent.name, f.name.split("_")[1]
+        if args.provider and provider not in args.provider:
+            continue
+        html = f.read_text(encoding="utf-8", errors="replace")
+        url, sha = urls.get(f.name, ("", hashlib.sha256(html.encode()).hexdigest()))
+        ctx = dict(provider=provider, authoritative=False, url=url, source_type="wayback",
+                   retrieved_at=datetime.strptime(ts[:14], "%Y%m%d%H%M%S")
+                   .replace(tzinfo=timezone.utc).isoformat(timespec="seconds"), sha=sha)
+        try:
+            recs = stamp_rows(parse_generic(html, ctx), ctx)
+        except Exception as e:
+            print(f"  {f.name}: parse error {e}")
+            recs = []
+        cands = [dict(provider=provider, snapshot=ts, url=url, **c)
+                 for c in text_candidates(html)]
+        append_csv(HIST_CSV, recs, FIELDS)
+        append_csv(CAND_CSV, cands, CAND_FIELDS)
+        n_rows, n_cands = n_rows + len(recs), n_cands + len(cands)
+        print(f"  {provider} {ts}: {len(recs)} table rows, {len(cands)} candidate lines")
+    print(f"\nReparsed {len(files)} saved snapshots: {n_rows} table rows, "
+          f"{n_cands} candidate lines (old CSVs kept as *.csv.bak).")
+    years = [int(f.name[3:7]) for f in files] or [datetime.now().year]
+    gap_report(args.provider or list(HISTORY), min(years), max(years))
 
 
 def gap_report(providers, y0, y1):
@@ -704,9 +784,11 @@ def main():
     b.add_argument("--since", default="2020-06", help="YYYY or YYYY-MM")
     b.add_argument("--until", default=datetime.now().strftime("%Y-%m"))
     b.add_argument("--limit", type=int, help="only the most recent N snapshots per URL")
+    c = sub.add_parser("reparse", help="rebuild history CSVs from saved raw pages (offline)")
+    c.add_argument("--provider", nargs="*")
     args = ap.parse_args()
     OUT.mkdir(exist_ok=True)
-    (run_live if args.cmd == "live" else run_history)(args)
+    {"live": run_live, "history": run_history, "reparse": run_reparse}[args.cmd](args)
 
 
 if __name__ == "__main__":
