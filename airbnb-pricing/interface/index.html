@@ -81,6 +81,25 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .topbar nav a { color: var(--muted); text-decoration: none; }
 .topbar nav a:hover { color: var(--ink); }
 
+
+/* two pages: calculator and explanation */
+.topbar nav.tabs { gap: 4px; }
+.topbar nav.tabs a { padding: 6px 12px; border-radius: 4px; font-weight: 600; }
+.topbar nav.tabs a[aria-current="page"] { color: var(--ink); background: color-mix(in oklab, var(--harbor) 12%, transparent); }
+.app-head { padding-block: 40px 8px; display: grid; gap: 14px; }
+.app-head h1 { font-size: var(--step-4); font-weight: 700; max-width: 20ch; }
+.app-head h1 em { font-style: normal; color: var(--brick); }
+.app-head .lede { font-size: 1.1rem; color: var(--muted); max-width: 64ch; }
+.app-head .lede span { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.app-link a { font-family: var(--font-display); font-weight: 600; text-decoration: none; }
+section.block.calc-block { border-top: 0; padding-top: 16px; }
+.subnav { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 28px; font-family: var(--font-display); font-size: 0.9rem; }
+.subnav a { padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink); text-decoration: none; background: var(--surface); }
+.subnav a:hover { border-color: var(--harbor); }
+section.block, .hero { scroll-margin-top: 72px; }
+.cta { justify-items: start; }
+.cta .btn { display: inline-block; text-decoration: none; background: var(--harbor); color: var(--paper); border-color: var(--harbor); }
+
 /* hero */
 .hero { padding-block: 56px 36px; display: grid; gap: 22px; }
 .hero h1 { font-size: var(--step-4); font-weight: 700; max-width: 20ch; }
@@ -241,47 +260,32 @@ ol.flow { margin: 0; padding-left: 1.2em; display: grid; gap: 10px; max-width: 6
 
 <header class="topbar">
   <div class="wrap">
-    <a class="brand" href="#top">
+    <a class="brand" href="#app">
       <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="1" y="9" width="6" height="12" fill="var(--brick)"/><rect x="8" y="4" width="6" height="17" fill="var(--harbor)"/><rect x="15" y="12" width="6" height="9" fill="var(--muted)"/></svg>
       Boston Airbnb Price Lab
     </a>
-    <nav aria-label="Sections">
-      <a href="#calculator">Price my listing</a>
-      <a href="#pipeline">Pipeline</a>
-      <a href="#s-data">Data</a>
-      <a href="#s-clean">Clean</a>
-      <a href="#s-features">Features</a>
-      <a href="#s-models">Models</a>
-      <a href="#s-eval">Evaluation</a>
-      <a href="#s-time">Time</a>
-      <a href="#s-nn">Text &amp; photos</a>
-      <a href="#s-trust">Trust</a>
-      <a href="#s-next">Next</a>
+    <nav class="tabs" aria-label="Pages">
+      <a href="#app" data-view="app">Price calculator</a>
+      <a href="#how" data-view="how">How it works</a>
     </nav>
   </div>
 </header>
 
 <main class="wrap" id="top">
 
-<section class="hero">
-  <span class="label">Predictive analytics project · Inside Airbnb, Boston · Dec 2025 – Sep 2026</span>
-  <h1>What should a Boston host charge <em>per night?</em></h1>
-  <p class="lede">One pipeline, from raw Inside Airbnb exports to a price a host can use: check the data, build and screen features, compare a dozen model types under an honest test, follow prices through the year, and read listing text and photos with neural networks. The calculator below runs the final model in your browser.</p>
-  <div class="facts">
-    <div><span class="v num" id="f-rows">7,039</span><span class="k">priced listings (June + September 2026) used for the final model</span></div>
-    <div><span class="v num" id="f-feat">141</span><span class="k">features a host can describe, kept after screening</span></div>
-    <div><span class="v num" id="f-mae">$85</span><span class="k" id="f-mae-k">average error per night on hosts the model never saw</span></div>
-    <div><span class="v num" id="f-r2">0.80</span><span class="k">R² on log price (share of price variation explained)</span></div>
-  </div>
+
+
+<div class="view" id="view-app">
+<section class="app-head">
+  <span class="label">Boston Airbnb · nightly price calculator</span>
+  <h1>What should you charge <em>per night?</em></h1>
+  <p class="lede">Describe your listing and get a recommended nightly price with a realistic range. The model learned from <span id="a-rows">7,039</span> Boston listings and is off by about <span id="a-mae">$85</span> a night on average for hosts it never saw. It runs entirely in your browser.</p>
+  <p class="app-link"><a href="#how">How the price is made →</a></p>
 </section>
 
 <!-- ================= CALCULATOR ================= -->
-<section class="block" id="calculator" aria-labelledby="calc-h">
-  <div class="sec-head">
-    <span class="label">The tool</span>
-    <h2 id="calc-h">Price my listing</h2>
-    <p class="muted">The form opens with an example: a renovated two-bedroom in the South End. Change anything, or click the map to place your listing. The final model reprices it instantly, in your browser.</p>
-  </div>
+<section class="block calc-block" id="calculator" aria-label="Price my listing">
+  <p class="muted">The form opens with an example: a renovated two-bedroom in the South End. Change anything, or click the map to place your listing. The price updates instantly.</p>
 
   <div class="calc">
     <form class="calc-in" id="calc-form" autocomplete="off">
@@ -404,10 +408,26 @@ ol.flow { margin: 0; padding-left: 1.2em; display: grid; gap: 10px; max-width: 6
   </div>
 </section>
 
+</div>
+
+<div class="view" id="view-how" hidden>
+<section class="hero">
+  <span class="label">How it works · Inside Airbnb, Boston · Dec 2025 – Sep 2026</span>
+  <h1>From raw listings to a <em>nightly price</em></h1>
+  <p class="lede">One pipeline, from raw Inside Airbnb exports to a price a host can use: check the data, build and screen features, compare a dozen model types under an honest test, follow prices through the year, and read listing text and photos with neural networks. This page explains each step and the evidence behind it; the <a href="#app">calculator</a> runs the final model.</p>
+  <div class="facts">
+    <div><span class="v num" id="f-rows">7,039</span><span class="k">priced listings (June + September 2026) used for the final model</span></div>
+    <div><span class="v num" id="f-feat">141</span><span class="k">features a host can describe, kept after screening</span></div>
+    <div><span class="v num" id="f-mae">$85</span><span class="k" id="f-mae-k">average error per night on hosts the model never saw</span></div>
+    <div><span class="v num" id="f-r2">0.80</span><span class="k">R² on log price (share of price variation explained)</span></div>
+  </div>
+</section>
+<nav class="subnav" aria-label="Stages"><a href="#pipeline">Pipeline</a><a href="#s-data">1 Data</a><a href="#s-clean">2 Clean</a><a href="#s-features">3 Features</a><a href="#s-models">4 Models</a><a href="#s-eval">5 Evaluation</a><a href="#s-time">6 Time</a><a href="#s-nn">7 Text &amp; photos</a><a href="#s-trust">8 Trust</a><a href="#s-next">Next steps</a></nav>
+
 <!-- ================= PIPELINE OVERVIEW ================= -->
 <section class="block" id="pipeline" aria-labelledby="pipe-h">
   <div class="sec-head">
-    <span class="label">How it was built</span>
+    <span class="label">Overview</span>
     <h2 id="pipe-h">One pipeline, eight stages</h2>
     <p>Each stage feeds the next, and each decision was tested on hosts the model had never seen. The numbers on each stage are the evidence behind it.</p>
   </div>
@@ -652,6 +672,13 @@ ol.flow { margin: 0; padding-left: 1.2em; display: grid; gap: 10px; max-width: 6
   </div>
 </section>
 
+<section class="block cta">
+  <h2>Try it on your own listing</h2>
+  <p class="muted">Every number above feeds the model behind the calculator.</p>
+  <p><a class="btn" href="#app">Open the price calculator</a></p>
+</section>
+</div>
+
 <footer>
   <div><strong>Reproduce it.</strong> Notebooks in order: <code>boston_airbnb_pricing</code> (snapshot, screening) → <code>boston_airbnb_quarterly</code> (time) → <code>boston_airbnb_phase3_enriched</code> (detailed attributes) → <code>boston_airbnb_team_merge</code> (feature ideas, model types, honest split) → <code>boston_airbnb_phase3_text_market</code> (text, photos, market data) → <code>boston_airbnb_overfitting_check</code> → <code>boston_airbnb_final_pipeline</code> (one ladder, final model, export). <code>node scripts/verify_js.js</code> checks that this page prices exactly like Python.</div>
   <div>Data: Inside Airbnb Boston (Dec 2025 – Sep 2026), Zillow ZHVI. Every figure on this page is read from the notebooks' exported results.</div>
@@ -704,6 +731,8 @@ ol.flow { margin: 0; padding-left: 1.2em; display: grid; gap: 10px; max-width: 6
 
   /* ---------------- headline facts ---------------- */
   $("f-rows").textContent = C.n_rows.toLocaleString("en-US");
+  $("a-rows").textContent = C.n_rows.toLocaleString("en-US");
+  $("a-mae").textContent = fmt$(C.oof_mae);
   $("f-feat").textContent = C.features.length;
   $("f-mae").textContent = fmt$(C.oof_mae);
   $("f-r2").textContent = C.oof_r2.toFixed(2);
@@ -975,6 +1004,24 @@ ol.flow { margin: 0; padding-left: 1.2em; display: grid; gap: 10px; max-width: 6
         if (Math.abs(r.bias_pct) >= 10) t.children[3].style.color = "var(--brick)"; sb.appendChild(t);
       });
     });
+  })();
+
+
+  /* ---------------- two pages: #app (calculator) and #how (explanation) ---------------- */
+  (function () {
+    var tabs = document.querySelectorAll("nav.tabs a");
+    function route() {
+      var h = location.hash.slice(1), how = !!h && h !== "app" && h !== "calculator" && h !== "top";
+      $("view-app").hidden = how; $("view-how").hidden = !how;
+      for (var i = 0; i < tabs.length; i++) {
+        if (tabs[i].getAttribute("data-view") === (how ? "how" : "app")) tabs[i].setAttribute("aria-current", "page"); else tabs[i].removeAttribute("aria-current");
+      }
+      var t = h && h !== "how" && h !== "app" ? document.getElementById(h) : null;
+      if (t) t.scrollIntoView({ behavior: "instant", block: "start" }); else window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      document.title = how ? "How it works · Boston Airbnb Price Lab" : "Boston Airbnb Price Lab";
+    }
+    window.addEventListener("hashchange", route);
+    route();
   })();
 
   /* ---------------- Next steps ---------------- */
