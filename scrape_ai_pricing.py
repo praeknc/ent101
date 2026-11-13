@@ -59,6 +59,7 @@ UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
 SESSION = requests.Session()
 SESSION.headers.update({"User-Agent": UA, "Accept-Language": "en,zh-CN;q=0.8"})
 POLITE_DELAY = 1.5  # seconds between requests
+WAYBACK_DELAY = 5.0  # web.archive.org allows ~15 req/min; faster gets 429s and a temporary block
 
 # --------------------------------------------------------------------------
 # SOURCES  (edit freely; verify the URLs in a browser first)
@@ -135,23 +136,38 @@ def per_1m(val, unit):
     return val * 1000 if unit == "1K" else val
 
 
-def http_get(url, params=None, tries=4, timeout=60):
+class RateLimited(RuntimeError):
+    pass
+
+
+def http_get(url, params=None, tries=4, timeout=60, backoff=5):
+    """GET with retries. 429/502/503/504 back off (honouring Retry-After);
+    the final error always names the last HTTP status or exception."""
     last = None
     for i in range(tries):
         try:
             r = SESSION.get(url, params=params, timeout=timeout)
             if r.status_code == 200:
                 return r
-            if r.status_code in (429, 502, 503):
-                time.sleep(5 * (i + 1))
+            last = f"HTTP {r.status_code}"
+            if r.status_code in (429, 502, 503, 504):
+                ra = r.headers.get("Retry-After", "")
+                wait = int(ra) if ra.isdigit() else backoff * 2 ** i
+                if i < tries - 1:
+                    print(f"      {last}; waiting {wait}s")
+                    time.sleep(wait)
                 continue
             r.raise_for_status()
+            break  # other non-200 2xx/3xx: not retryable
+        except requests.exceptions.HTTPError as e:
+            raise RuntimeError(f"GET failed for {url}: {e}")  # 4xx: retrying won't help
         except requests.exceptions.ProxyError as e:
             raise RuntimeError(f"GET blocked by proxy for {url}: {e}")  # retrying won't help
         except requests.RequestException as e:
             last = e
             time.sleep(3 * (i + 1))
-    raise RuntimeError(f"GET failed for {url}: {last}")
+    err = RateLimited if last == "HTTP 429" else RuntimeError
+    raise err(f"GET failed for {url}: {last}")
 
 
 CHROMIUM_FALLBACKS = [os.environ.get("CHROMIUM_PATH", ""), "/opt/pw-browsers/chromium",
@@ -603,6 +619,7 @@ def run_history(args):
         for url in urls:
             try:
                 snaps = cdx_snapshots(url, since, until)
+                time.sleep(WAYBACK_DELAY)
             except Exception as e:
                 print(f"[history] {provider} {url}: CDX error {e}")
                 continue
@@ -617,9 +634,15 @@ def run_history(args):
                     continue
                 snap_url = f"https://web.archive.org/web/{ts}id_/{original}"
                 try:
-                    r = http_get(snap_url, timeout=90)
+                    r = http_get(snap_url, timeout=90, tries=5, backoff=15)
+                except RateLimited as e:
+                    print(f"    {ts}: still rate-limited ({e}); cooling down 5 min. "
+                          "Re-run later to fill it (saved snapshots are skipped).")
+                    time.sleep(300)
+                    continue
                 except Exception as e:
                     print(f"    {ts}: fetch failed ({e})")
+                    time.sleep(WAYBACK_DELAY)
                     continue
                 html = r.content.decode("utf-8", errors="replace")
                 path, sha = save_snapshot(provider, snap_url, html, "html", "wayback",
@@ -640,7 +663,7 @@ def run_history(args):
                 append_csv(CAND_CSV, cands, ["provider", "snapshot", "url", "line"])
                 total += 1
                 print(f"    {ts}: {len(recs)} table rows, {len(cands)} candidate lines")
-                time.sleep(POLITE_DELAY)
+                time.sleep(WAYBACK_DELAY)
     print(f"\nDone. {total} new snapshots. See {HIST_CSV} and {CAND_CSV}.")
     gap_report(args.provider or list(HISTORY), int(since[:4]), int(until[:4]))
     print("Old pages rarely have clean tables: use history_candidates.csv + raw HTML "
