@@ -674,6 +674,8 @@ def text_candidates(html):
 
 
 def run_history(args):
+    global WAYBACK_DELAY
+    WAYBACK_DELAY = args.delay
     since = args.since if len(args.since) > 4 else args.since + "-01"
     until = args.until if len(args.until) > 4 else args.until + "-12"
     total = fails = 0
@@ -815,6 +817,9 @@ def main():
     b.add_argument("--since", default="2020-06", help="YYYY or YYYY-MM")
     b.add_argument("--until", default=datetime.now().strftime("%Y-%m"))
     b.add_argument("--limit", type=int, help="only the most recent N snapshots per URL")
+    b.add_argument("--delay", type=float, default=WAYBACK_DELAY,
+                   help=f"seconds between Wayback requests (default {WAYBACK_DELAY:g}; "
+                        "use 15-30 if you keep getting HTTP 429)")
     c = sub.add_parser("reparse", help="rebuild history CSVs from saved raw pages (offline)")
     c.add_argument("--provider", nargs="*")
     args = ap.parse_args()
