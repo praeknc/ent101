@@ -59,6 +59,11 @@ UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
       "Chrome/124.0 Safari/537.36 academic-pricing-research")
 SESSION = requests.Session()
 SESSION.headers.update({"User-Agent": UA, "Accept-Language": "en,zh-CN;q=0.8"})
+# Wayback rejects (HTTP 429) the browser-like UA above from scripts but accepts
+# plain tool UAs such as curl's, so archive requests use an honest one.
+WAYBACK_UA = "scrape_ai_pricing/1.0 (academic research)"
+WB_SESSION = requests.Session()
+WB_SESSION.headers.update({"User-Agent": WAYBACK_UA})
 POLITE_DELAY = 1.5  # seconds between requests
 WAYBACK_DELAY = 5.0  # web.archive.org allows ~15 req/min; faster gets 429s and a temporary block
 
@@ -141,13 +146,13 @@ class RateLimited(RuntimeError):
     pass
 
 
-def http_get(url, params=None, tries=4, timeout=60, backoff=5):
+def http_get(url, params=None, tries=4, timeout=60, backoff=5, session=None):
     """GET with retries. 429/502/503/504 back off (honouring Retry-After);
     the final error always names the last HTTP status or exception."""
     last = None
     for i in range(tries):
         try:
-            r = SESSION.get(url, params=params, timeout=timeout)
+            r = (session or SESSION).get(url, params=params, timeout=timeout)
             if r.status_code == 200:
                 return r
             last = f"HTTP {r.status_code}"
@@ -583,7 +588,8 @@ def cdx_snapshots(url, since, until, collapse="timestamp:6"):
     params = {"url": url, "output": "json", "filter": "statuscode:200",
               "collapse": collapse, "fl": "timestamp,original,digest",
               "from": since.replace("-", ""), "to": until.replace("-", "")}
-    r = http_get("https://web.archive.org/cdx/search/cdx", params=params, timeout=90)
+    r = http_get("https://web.archive.org/cdx/search/cdx", params=params, timeout=90,
+                 session=WB_SESSION)
     try:
         rows = r.json()
     except ValueError:
@@ -694,11 +700,13 @@ def text_candidates(html):
 def run_history(args):
     global WAYBACK_DELAY
     WAYBACK_DELAY = args.delay
+    if args.user_agent:
+        WB_SESSION.headers["User-Agent"] = args.user_agent
     since = args.since if len(args.since) > 4 else args.since + "-01"
     until = args.until if len(args.until) > 4 else args.until + "-12"
     total = fails = 0
     try:  # one quick probe so an unreachable archive fails in seconds, not minutes
-        SESSION.get("https://web.archive.org/cdx/search/cdx",
+        WB_SESSION.get("https://web.archive.org/cdx/search/cdx",
                     params={"url": "example.com", "limit": "1"}, timeout=30)
     except requests.RequestException as e:
         print(f"Wayback Machine unreachable from this network ({type(e).__name__}); "
@@ -729,7 +737,8 @@ def run_history(args):
                     continue
                 snap_url = f"https://web.archive.org/web/{ts}id_/{original}"
                 try:
-                    r = http_get(snap_url, timeout=90, tries=4, backoff=15)
+                    r = http_get(snap_url, timeout=90, tries=4, backoff=15,
+                                 session=WB_SESSION)
                     fails = 0
                 except Exception as e:
                     fails += 1
@@ -838,6 +847,8 @@ def main():
     b.add_argument("--since", default="2020-06", help="YYYY or YYYY-MM")
     b.add_argument("--until", default=datetime.now().strftime("%Y-%m"))
     b.add_argument("--limit", type=int, help="only the most recent N snapshots per URL")
+    b.add_argument("--user-agent", help=f'User-Agent for Wayback requests (default '
+                   f'"{WAYBACK_UA}"; try "curl/8.7.1" if you still get HTTP 429)')
     b.add_argument("--every", type=int, default=1,
                    help="keep every Nth month after dropping unchanged ones (e.g. 3 = quarterly)")
     b.add_argument("--delay", type=float, default=WAYBACK_DELAY,
