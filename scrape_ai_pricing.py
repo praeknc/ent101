@@ -581,14 +581,32 @@ def run_live(args):
 # --------------------------------------------------------------------------
 def cdx_snapshots(url, since, until, collapse="timestamp:6"):
     params = {"url": url, "output": "json", "filter": "statuscode:200",
-              "collapse": collapse, "fl": "timestamp,original",
+              "collapse": collapse, "fl": "timestamp,original,digest",
               "from": since.replace("-", ""), "to": until.replace("-", "")}
     r = http_get("https://web.archive.org/cdx/search/cdx", params=params, timeout=90)
     try:
         rows = r.json()
     except ValueError:
         return []
-    return rows[1:] if rows else []
+    return [r[:3] + [""] * (3 - len(r)) for r in rows[1:]] if rows else []
+
+
+def thin_snapshots(snaps, every=1):
+    """Drop snapshots whose content digest equals the previous kept one (page
+    unchanged since last month), then keep every Nth month. The newest snapshot
+    is always kept so the series reaches the end of the window."""
+    out, last = [], None
+    for ts, original, digest in snaps:
+        if digest and digest == last:
+            continue
+        last = digest
+        out.append((ts, original, digest))
+    if every > 1 and out:
+        kept = out[::every]
+        if kept[-1] != out[-1]:
+            kept.append(out[-1])
+        out = kept
+    return out
 
 
 FIELD_WORDS = {"price", "pricing", "prices", "usage", "model", "input", "output",
@@ -697,10 +715,13 @@ def run_history(args):
             except Exception as e:
                 print(f"[history] {provider} {url}: CDX error {e}")
                 continue
+            n_all = len(snaps)
+            snaps = thin_snapshots(snaps, args.every)
             if args.limit:
                 snaps = snaps[-args.limit:]
-            print(f"[history] {provider} {url}: {len(snaps)} monthly snapshots")
-            for ts, original in snaps:
+            print(f"[history] {provider} {url}: {n_all} monthly snapshots, "
+                  f"{len(snaps)} to fetch (unchanged/skipped months dropped)")
+            for ts, original, _ in snaps:
                 d = RAW / provider
                 tag = hashlib.md5(url.encode()).hexdigest()[:6]
                 target = d / f"wb_{ts}_{tag}.html"
@@ -817,6 +838,8 @@ def main():
     b.add_argument("--since", default="2020-06", help="YYYY or YYYY-MM")
     b.add_argument("--until", default=datetime.now().strftime("%Y-%m"))
     b.add_argument("--limit", type=int, help="only the most recent N snapshots per URL")
+    b.add_argument("--every", type=int, default=1,
+                   help="keep every Nth month after dropping unchanged ones (e.g. 3 = quarterly)")
     b.add_argument("--delay", type=float, default=WAYBACK_DELAY,
                    help=f"seconds between Wayback requests (default {WAYBACK_DELAY:g}; "
                         "use 15-30 if you keep getting HTTP 429)")
