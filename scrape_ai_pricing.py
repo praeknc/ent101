@@ -254,7 +254,8 @@ def html_blocks(html):
             yield "table", [r for r in rows if any(r)]
         else:
             # strip icon-font glyphs (Unicode private-use area) from headings
-            yield "heading", re.sub(r'[\ue000-\uf8ff]', '', el.get_text(" ", strip=True)).strip()
+            yield "heading", re.sub(r'[\ue000-\uf8ff\u200b-\u200d\ufeff]', '',
+                                    el.get_text(" ", strip=True)).strip()
 
 
 TIER_LINE = re.compile(r'^(?:#+\s*)?(Standard|Batch|Flex|Fast|Ultrafast|Priority)'
@@ -320,9 +321,27 @@ def _pick(header, key, exclude=("cached", "cache", "long", "write", "batch")):
     for i, h in enumerate(header):
         if _is_col(h, key) and not any(x in h for x in exclude):
             return i
+    # e.g. a batch-only table: "Model | Batch input | Batch output"
+    soft = [x for x in exclude if x not in ("batch", "long")]
+    for i, h in enumerate(header):
+        if _is_col(h, key) and not any(x in h for x in soft):
+            return i
     return None
 
 
+PAGE_1M = re.compile(r'(?:prices?|pricing)[^.\n]{0,40}per\s*(?:1\s?M\b|million)'
+                     r'|per\s+(?:1\s?M|one\s+million|million)\s+tokens|/\s*MTok', re.I)
+PAGE_1K = re.compile(r'per\s*(?:1\s?K|1,?000|thousand)\s+tokens|/\s*1\s?K\s+tokens', re.I)
+
+
+def page_unit(content):
+    """'1M' when the page says once, e.g. 'Prices per 1M tokens', and never mentions 1K."""
+    text = BeautifulSoup(content, "lxml").get_text(" ") if "<" in content[:2000] else content
+    return "1M" if PAGE_1M.search(text) and not PAGE_1K.search(text) else ""
+
+
+DATE_QUAL = re.compile(r'\b(?:through|until|till|starting|from|effective|before|after)\s+'
+                       r'(?:[A-Z][a-z]+\s+\d{1,2}(?:,?\s+\d{4})?|\d{4}-\d{2}-\d{2})')
 PROMPT_TIER_RE = re.compile(r'prompts?\s+(up to|over|above|below|<=?|>=?|≤|≥)\s*([0-9,]+[kK]?)')
 ARITH_RE = re.compile(r'×|[0-9]\s*\*\s*\$|/\s*1,?000,?000\b')  # worked-example arithmetic
 
@@ -330,6 +349,8 @@ ARITH_RE = re.compile(r'×|[0-9]\s*\*\s*\$|/\s*1,?000,?000\b')  # worked-example
 def parse_generic(content, ctx):
     recs, section, header, last_name = [], "", None, ""
     topic, tier = "", ""
+    prev_full = []  # previous full-width row, to fill rowspan'd leading cells
+    page_u = ctx.get("default_unit") or page_unit(content)
     for kind, payload in blocks_for(content):
         if kind in ("heading", "topic"):
             topic, tier = payload, ""
@@ -357,8 +378,20 @@ def parse_generic(content, ctx):
             if any(ARITH_RE.search(c) for c in cells):
                 continue
             reasons = []
+            if header and len(cells) < len(header) and prev_full and not parse_price(cells[0]) \
+                    and _pick(header, "model", exclude=()) is not None:
+                # rowspan'd model cell(s): borrow the leading cells from the row above
+                cells = prev_full[:len(header) - len(cells)] + cells
+                reasons.append("rowspan row realigned to header")
+            elif header and len(cells) == len(header):
+                prev_full = cells
             mcol = _pick(header, "model", exclude=()) or 0  # "Category | Model | ..." tables
             name = cells[mcol].split("\n")[0].strip() if mcol < len(cells) else ""
+            name = re.sub(r'\s*\($', '', name.replace("\u200b", "")).strip()
+            when = DATE_QUAL.search(cells[mcol]) if mcol < len(cells) else None
+            if when and name:  # "Claude Sonnet 5 / through August 31" -> keep the date
+                name += f" ({' '.join(when.group(0).split())})"
+                reasons.append("date-dependent price (promo or scheduled change)")
             if not name or parse_price(name):
                 name = (last_name + " [continuation]") if last_name else ""
                 # rowspan'd name cell: row is missing leading cells -> realign
@@ -378,7 +411,7 @@ def parse_generic(content, ctx):
                 pin, pout = parse_price(cells[ci]), parse_price(cells[co])
             if not pin or not pout:
                 continue
-            unit = pin[2] or pout[2] or ctx.get("default_unit", "")
+            unit = pin[2] or pout[2] or page_u
             if not unit:
                 reasons.append("per-unit not stated in cell; assumed 1M")
             if pin[1] != pout[1]:
@@ -517,6 +550,13 @@ def parse_long(content, ctx):
 
 
 PARSERS = {"generic": parse_generic, "gemini": parse_gemini, "long": parse_long}
+
+
+def parse_for(provider, content, ctx):
+    """The provider's own parser from SOURCES (gemini, long...), else generic."""
+    name = next((s["parser"] for s in SOURCES if s["provider"] == provider), "generic")
+    recs = PARSERS[name](content, ctx) if name != "generic" else []
+    return recs or parse_generic(content, ctx)
 
 
 def stamp_rows(recs, ctx):
@@ -763,7 +803,7 @@ def run_history(args):
                            sha=sha)
                 recs = []
                 try:
-                    recs = stamp_rows(parse_generic(html, ctx), ctx)
+                    recs = stamp_rows(parse_for(provider, html, ctx), ctx)
                 except Exception as e:
                     print(f"    {ts}: parse error {e}")
                 append_csv(HIST_CSV, recs, FIELDS)
@@ -802,7 +842,7 @@ def run_reparse(args):
                    retrieved_at=datetime.strptime(ts[:14], "%Y%m%d%H%M%S")
                    .replace(tzinfo=timezone.utc).isoformat(timespec="seconds"), sha=sha)
         try:
-            recs = stamp_rows(parse_generic(html, ctx), ctx)
+            recs = stamp_rows(parse_for(provider, html, ctx), ctx)
         except Exception as e:
             print(f"  {f.name}: parse error {e}")
             recs = []
