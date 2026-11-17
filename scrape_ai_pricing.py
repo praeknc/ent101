@@ -490,14 +490,43 @@ def _long_unit(text):
     return cur, unit
 
 
+LONG_NUM = re.compile(r'^[¥￥]?\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*(美元|元|USD|CNY|RMB)?\s*'
+                      r'(?:/\s*(百万|千|1\s?M|1\s?K|million|thousand)\s*tokens?)?', re.I)
+LONG_LIST = re.compile(r'原价\s*([0-9][0-9,]*(?:\.[0-9]+)?)')
+LONG_MODEL_COLS = ("版本名称", "模型名称", "模型", "model")
+
+
+def _long_price(cell, rest=""):
+    """'0.12元/千tokens (限时优惠，原价0.15元/千tokens)' -> (0.12, 'CNY', '1K', 0.15).
+    Unit/currency may sit in the cell itself or in the following cells ('1.4' + '美元/百万tokens')."""
+    c = " ".join(cell.split())
+    m = LONG_NUM.match(c)
+    if not m or not m.group(1):
+        return None
+    tail = c[m.end():] + " " + rest
+    if re.search(r'/\s*(秒|张|次|图|小时|天|second|image|request)', c[m.start():m.end() + 12]):
+        return None  # per-second / per-image prices are not token prices
+    cur, unit = _long_unit((m.group(2) or "") + " " + (m.group(3) or "") + " " + tail)
+    if m.group(3):
+        unit = "1M" if re.match(r'百万|1\s?M|million', m.group(3), re.I) else "1K"
+    if m.group(2):
+        cur = "USD" if m.group(2) in ("美元", "USD") else "CNY"
+    if not unit and "tokens" not in tail.lower():
+        return None
+    lst = LONG_LIST.search(c)
+    return float(m.group(1).replace(",", "")), cur, unit, (float(lst.group(1)) if lst else None)
+
+
 def parse_long(content, ctx):
-    """Long-format tables (Baidu Qianfan): one row per sub-item, rowspan'd model
-    cells, bare-number price and a separate unit column, e.g.
-      [model, version, service, '输入', '1.4', '美元/百万tokens']
-      ['输出', '5.6', '美元/百万tokens']"""
-    recs, section, model = [], "", ""
-    acc = {}  # (section, model) -> {"in": (val, cur, unit, raw), "out": ...}
-    order = []
+    """Long-format tables (Baidu Qianfan): one row per sub-item with rowspan'd
+    model cells, e.g.
+      2026: [模型名称, 版本名称, 服务内容, 输入, 1.4, 美元/百万tokens] / [输出, 5.6, ...]
+      2024: [模型, 速率限制, 服务内容, 输入, 0.12元/千tokens (原价0.15元...)] / [输出, ...]
+      2024: [模型, 速率限制, 服务内容, 0.004元/千tokens]   <- one price for in & out
+    Model comes from the header's 版本名称/模型名称/模型 column. Promo prices keep the
+    list price ('原价') in raw_row. Per-second/per-image and prepaid packs are skipped."""
+    recs, section = [], ""
+    acc, order = {}, []  # (section, model) -> {"in"/"out"/"single": (price, raw)}
     for kind, payload in blocks_for(content):
         if kind == "heading":
             if payload in BILLING_HEADINGS and section:
@@ -505,47 +534,76 @@ def parse_long(content, ctx):
             else:
                 section = payload
             continue
+        header, mcol, model = None, 0, ""
         for cells in payload:
-            # find the sub-item label followed by a bare number
+            low = [c.lower() for c in cells]
+            if header is None and not any(LONG_NUM.match(c.strip()) and _long_price(c) for c in cells):
+                header = cells
+                mcol = next((i for key in LONG_MODEL_COLS for i, h in enumerate(low)
+                             if h.strip() == key.lower()), 0)
+                continue
+            if header is None:
+                continue
+            full = len(cells) >= len(header) - 1  # row still carries its model cells
+            if full and mcol < len(cells) and cells[mcol].strip():
+                model = " ".join(cells[mcol].split())
+            if not model or "tokenizer" in model.lower():
+                continue  # tokenizer service fee, not a model price
+            raw = " | ".join(" ".join(c.split()) for c in cells)
+            key = (section, model)
+            hit = False
             for i in range(len(cells) - 1):
                 lab = cells[i].strip()
-                if not (LONG_IN.match(lab) or LONG_OUT.match(lab) or "缓存" in lab
-                        or "cache" in lab.lower()):
+                is_in, is_out = LONG_IN.match(lab), LONG_OUT.match(lab)
+                if not (is_in or is_out or "缓存" in lab or "cache" in lab.lower()):
                     continue
-                num = re.fullmatch(r'[0-9][0-9,]*(?:\.[0-9]+)?', cells[i + 1].strip())
-                if not num:
-                    continue
-                if i >= 1:  # row carries the model cells
-                    model = cells[1] if i >= 2 and cells[1] else cells[0]
-                if "缓存" in lab or "cache" in lab.lower():
-                    break  # cached-input price: not captured
-                cur, unit = _long_unit(" ".join(cells[i + 2:]))
-                key = (section, model)
+                pr = _long_price(cells[i + 1], " ".join(cells[i + 2:]))
+                hit = True
+                if pr and (is_in or is_out) and "缓存" not in lab:
+                    if key not in acc:
+                        acc[key] = {}
+                        order.append(key)
+                    acc[key]["in" if is_in else "out"] = (pr, raw)
+                break
+            if hit:
+                continue
+            # no 输入/输出 label: a single price for the whole model (2024 third-party models)
+            prices = [_long_price(c) for c in cells[1:]]
+            prices = [p for p in prices if p]
+            if len(prices) == 1:
                 if key not in acc:
                     acc[key] = {}
                     order.append(key)
-                acc[key]["in" if LONG_IN.match(lab) else "out"] = (
-                    float(num.group(0).replace(",", "")), cur, unit,
-                    " | ".join(c.replace("\n", " ") for c in cells))
-                break
+                acc[key]["single"] = (prices[0], raw)
     for key in order:
         d = acc[key]
+        if "single" in d and not ("in" in d and "out" in d):
+            d["in"] = d["out"] = d["single"]
+            single = True
+        else:
+            single = False
         if "in" not in d or "out" not in d:
             continue
-        (vin, cin, uin, rin), (vout, cout, uout, rout) = d["in"], d["out"]
+        ((vin, cin, uin, lin), rin), ((vout, cout, uout, lout), rout) = d["in"], d["out"]
         reasons = []
+        if single:
+            reasons.append("one price listed for input and output")
+        if lin or lout:
+            reasons.append(f"promo price; list price in {cin or 'CNY'}: in {lin or vin}, out {lout or vout} per {uin or '?'}")
         if not (uin or uout):
             reasons.append("per-unit not stated; assumed 1M")
         if not (cin or cout):
             reasons.append("currency not stated")
         if cin and cout and cin != cout:
             reasons.append("currency mismatch")
+        if not ctx.get("authoritative", True):
+            reasons.append("non-authoritative source")
         recs.append(dict(
             provider=ctx["provider"], model=key[1], section=key[0],
             input_per_1m=per_1m(vin, uin), output_per_1m=per_1m(vout, uout or uin),
-            currency=cin or cout, unit_detected=uin or uout or "1M",
+            currency=cin or cout or "CNY", unit_detected=uin or uout or "1M",
             needs_review=bool(reasons), review_reason="; ".join(reasons),
-            raw_row=f"IN: {rin} || OUT: {rout}"))
+            raw_row=f"IN: {rin} || OUT: {rout}" if rin != rout else rin))
     return recs
 
 
