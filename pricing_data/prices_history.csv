@@ -82,16 +82,16 @@ alibaba,通义千问 2.5-开源版-32B,支持的自定义模型,3.5,7.0,CNY,1K,T
 alibaba,通义千问 2.5-开源版-14B,支持的自定义模型,2.0,6.0,CNY,1K,True,non-authoritative source,通义千问 2.5-开源版-14B | 0.002 元/千 Token | 0.006 元/千 Token,https://web.archive.org/web/20250302065207id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-03-02T06:52:07+00:00,2f7a0a9c086d9a166702912c529b176d85e7bf007e59cd557e6ed3fa02a40589
 alibaba,通义千问 2.5-开源版-7B,支持的自定义模型,1.0,2.0,CNY,1K,True,non-authoritative source,通义千问 2.5-开源版-7B | 0.001 元/千 Token | 0.002 元/千 Token,https://web.archive.org/web/20250302065207id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-03-02T06:52:07+00:00,2f7a0a9c086d9a166702912c529b176d85e7bf007e59cd557e6ed3fa02a40589
 alibaba,通义千问 2-开源版-7B,支持的自定义模型,1.0,2.0,CNY,1K,True,non-authoritative source,通义千问 2-开源版-7B | 0.001 元/千 Token | 0.002 元/千 Token,https://web.archive.org/web/20250302065207id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-03-02T06:52:07+00:00,2f7a0a9c086d9a166702912c529b176d85e7bf007e59cd557e6ed3fa02a40589
-alibaba,通义千问-Max 适合复杂任务，能力最强,旗舰模型,2.4,9.6,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0024
+alibaba,qwen-max,旗舰模型,2.4,9.6,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0024
 元 || 最低输出价格 （每千 Token）: 0.0096
 元",https://web.archive.org/web/20250425162203id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-04-25T16:22:03+00:00,41491ec0d532d35e6d0f86894cc81b0927f5bd23f567dc6db8611e1876cb45e9
-alibaba,通义千问-Plus 效果、速度、成本均衡,旗舰模型,0.8,2.0,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0008
+alibaba,qwen-plus,旗舰模型,0.8,2.0,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0008
 元 || 最低输出价格 （每千 Token）: 0.002
 元",https://web.archive.org/web/20250425162203id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-04-25T16:22:03+00:00,41491ec0d532d35e6d0f86894cc81b0927f5bd23f567dc6db8611e1876cb45e9
-alibaba,通义千问-Turbo 适合简单任务，速度快、成本极低,旗舰模型,0.3,0.6,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0003
+alibaba,qwen-turbo,旗舰模型,0.3,0.6,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0003
 元 || 最低输出价格 （每千 Token）: 0.0006
 元",https://web.archive.org/web/20250425162203id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-04-25T16:22:03+00:00,41491ec0d532d35e6d0f86894cc81b0927f5bd23f567dc6db8611e1876cb45e9
-alibaba,通义千问-Long 适合大规模文本分析，效果与速度均衡、成本较低,旗舰模型,0.5,2.0,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0005
+alibaba,qwen-long,旗舰模型,0.5,2.0,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0005
 元 || 最低输出价格 （每千 Token）: 0.002
 元",https://web.archive.org/web/20250425162203id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-04-25T16:22:03+00:00,41491ec0d532d35e6d0f86894cc81b0927f5bd23f567dc6db8611e1876cb45e9
 alibaba,通义千问 2.5-开源版-72B,按模型调用量 计费,4.0,12.0,CNY,1K,True,non-authoritative source,通义千问 2.5-开源版-72B | 0.004 元/千 Token | 0.012 元/千 Token,https://web.archive.org/web/20250425162203id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-04-25T16:22:03+00:00,41491ec0d532d35e6d0f86894cc81b0927f5bd23f567dc6db8611e1876cb45e9
@@ -99,16 +99,16 @@ alibaba,通义千问 2.5-开源版-32B,按模型调用量 计费,3.5,7.0,CNY,1K,
 alibaba,通义千问 2.5-开源版-14B,按模型调用量 计费,2.0,6.0,CNY,1K,True,non-authoritative source,通义千问 2.5-开源版-14B | 0.002 元/千 Token | 0.006 元/千 Token,https://web.archive.org/web/20250425162203id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-04-25T16:22:03+00:00,41491ec0d532d35e6d0f86894cc81b0927f5bd23f567dc6db8611e1876cb45e9
 alibaba,通义千问 2.5-开源版-7B,按模型调用量 计费,1.0,2.0,CNY,1K,True,non-authoritative source,通义千问 2.5-开源版-7B | 0.001 元/千 Token | 0.002 元/千 Token,https://web.archive.org/web/20250425162203id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-04-25T16:22:03+00:00,41491ec0d532d35e6d0f86894cc81b0927f5bd23f567dc6db8611e1876cb45e9
 alibaba,通义千问 2-开源版-7B,按模型调用量 计费,1.0,2.0,CNY,1K,True,non-authoritative source,通义千问 2-开源版-7B | 0.001 元/千 Token | 0.002 元/千 Token,https://web.archive.org/web/20250425162203id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-04-25T16:22:03+00:00,41491ec0d532d35e6d0f86894cc81b0927f5bd23f567dc6db8611e1876cb45e9
-alibaba,通义千问-Max 适合复杂任务，能力最强,旗舰模型,2.4,9.6,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0024
+alibaba,qwen-max,旗舰模型,2.4,9.6,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0024
 元 || 最低输出价格 （每千 Token）: 0.0096
 元",https://web.archive.org/web/20250515220536id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-05-15T22:05:36+00:00,79c2e58dcd0cd0ad271244fa27f832fd13715663206cd76a893da89dd46fbb17
-alibaba,通义千问-Plus 效果、速度、成本均衡,旗舰模型,0.8,2.0,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0008
+alibaba,qwen-plus,旗舰模型,0.8,2.0,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0008
 元 || 最低输出价格 （每千 Token）: 0.002
 元",https://web.archive.org/web/20250515220536id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-05-15T22:05:36+00:00,79c2e58dcd0cd0ad271244fa27f832fd13715663206cd76a893da89dd46fbb17
-alibaba,通义千问-Turbo 适合简单任务，速度快、成本极低,旗舰模型,0.3,0.6,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0003
+alibaba,qwen-turbo,旗舰模型,0.3,0.6,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0003
 元 || 最低输出价格 （每千 Token）: 0.0006
 元",https://web.archive.org/web/20250515220536id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-05-15T22:05:36+00:00,79c2e58dcd0cd0ad271244fa27f832fd13715663206cd76a893da89dd46fbb17
-alibaba,通义千问-Long 适合大规模文本分析，效果与速度均衡、成本较低,旗舰模型,0.5,2.0,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0005
+alibaba,qwen-long,旗舰模型,0.5,2.0,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0005
 元 || 最低输出价格 （每千 Token）: 0.002
 元",https://web.archive.org/web/20250515220536id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-05-15T22:05:36+00:00,79c2e58dcd0cd0ad271244fa27f832fd13715663206cd76a893da89dd46fbb17
 alibaba,通义千问 2.5-开源版-72B,按模型调用量 计费,4.0,12.0,CNY,1K,True,non-authoritative source,通义千问 2.5-开源版-72B | 0.004 元/千 Token | 0.012 元/千 Token,https://web.archive.org/web/20250515220536id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-05-15T22:05:36+00:00,79c2e58dcd0cd0ad271244fa27f832fd13715663206cd76a893da89dd46fbb17
@@ -116,16 +116,16 @@ alibaba,通义千问 2.5-开源版-32B,按模型调用量 计费,3.5,7.0,CNY,1K,
 alibaba,通义千问 2.5-开源版-14B,按模型调用量 计费,2.0,6.0,CNY,1K,True,non-authoritative source,通义千问 2.5-开源版-14B | 0.002 元/千 Token | 0.006 元/千 Token,https://web.archive.org/web/20250515220536id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-05-15T22:05:36+00:00,79c2e58dcd0cd0ad271244fa27f832fd13715663206cd76a893da89dd46fbb17
 alibaba,通义千问 2.5-开源版-7B,按模型调用量 计费,1.0,2.0,CNY,1K,True,non-authoritative source,通义千问 2.5-开源版-7B | 0.001 元/千 Token | 0.002 元/千 Token,https://web.archive.org/web/20250515220536id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-05-15T22:05:36+00:00,79c2e58dcd0cd0ad271244fa27f832fd13715663206cd76a893da89dd46fbb17
 alibaba,通义千问 2-开源版-7B,按模型调用量 计费,1.0,2.0,CNY,1K,True,non-authoritative source,通义千问 2-开源版-7B | 0.001 元/千 Token | 0.002 元/千 Token,https://web.archive.org/web/20250515220536id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-05-15T22:05:36+00:00,79c2e58dcd0cd0ad271244fa27f832fd13715663206cd76a893da89dd46fbb17
-alibaba,通义千问-Max 适合复杂任务，能力最强,旗舰模型,2.4,9.6,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0024
+alibaba,qwen-max,旗舰模型,2.4,9.6,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0024
 元 || 最低输出价格 （每千 Token）: 0.0096
 元",https://web.archive.org/web/20250603042829id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-06-03T04:28:29+00:00,dd1a101964fa92c2c8806645eaf1790e1cbefc445c18582a871545f2d7ea4529
-alibaba,通义千问-Plus 效果、速度、成本均衡,旗舰模型,0.8,2.0,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0008
+alibaba,qwen-plus,旗舰模型,0.8,2.0,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0008
 元 || 最低输出价格 （每千 Token）: 0.002
 元",https://web.archive.org/web/20250603042829id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-06-03T04:28:29+00:00,dd1a101964fa92c2c8806645eaf1790e1cbefc445c18582a871545f2d7ea4529
-alibaba,通义千问-Turbo 适合简单任务，速度快、成本极低,旗舰模型,0.3,0.6,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0003
+alibaba,qwen-turbo,旗舰模型,0.3,0.6,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0003
 元 || 最低输出价格 （每千 Token）: 0.0006
 元",https://web.archive.org/web/20250603042829id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-06-03T04:28:29+00:00,dd1a101964fa92c2c8806645eaf1790e1cbefc445c18582a871545f2d7ea4529
-alibaba,通义千问-Long 适合大规模文本分析，效果与速度均衡、成本较低,旗舰模型,0.5,2.0,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0005
+alibaba,qwen-long,旗舰模型,0.5,2.0,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0005
 元 || 最低输出价格 （每千 Token）: 0.002
 元",https://web.archive.org/web/20250603042829id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-06-03T04:28:29+00:00,dd1a101964fa92c2c8806645eaf1790e1cbefc445c18582a871545f2d7ea4529
 alibaba,通义千问 2.5-开源版-72B,按模型调用量 计费,4.0,12.0,CNY,1K,True,non-authoritative source,通义千问 2.5-开源版-72B | 0.004 元/千 Token | 0.012 元/千 Token,https://web.archive.org/web/20250603042829id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-06-03T04:28:29+00:00,dd1a101964fa92c2c8806645eaf1790e1cbefc445c18582a871545f2d7ea4529
@@ -133,16 +133,16 @@ alibaba,通义千问 2.5-开源版-32B,按模型调用量 计费,3.5,7.0,CNY,1K,
 alibaba,通义千问 2.5-开源版-14B,按模型调用量 计费,2.0,6.0,CNY,1K,True,non-authoritative source,通义千问 2.5-开源版-14B | 0.002 元/千 Token | 0.006 元/千 Token,https://web.archive.org/web/20250603042829id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-06-03T04:28:29+00:00,dd1a101964fa92c2c8806645eaf1790e1cbefc445c18582a871545f2d7ea4529
 alibaba,通义千问 2.5-开源版-7B,按模型调用量 计费,1.0,2.0,CNY,1K,True,non-authoritative source,通义千问 2.5-开源版-7B | 0.001 元/千 Token | 0.002 元/千 Token,https://web.archive.org/web/20250603042829id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-06-03T04:28:29+00:00,dd1a101964fa92c2c8806645eaf1790e1cbefc445c18582a871545f2d7ea4529
 alibaba,通义千问 2-开源版-7B,按模型调用量 计费,1.0,2.0,CNY,1K,True,non-authoritative source,通义千问 2-开源版-7B | 0.001 元/千 Token | 0.002 元/千 Token,https://web.archive.org/web/20250603042829id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-06-03T04:28:29+00:00,dd1a101964fa92c2c8806645eaf1790e1cbefc445c18582a871545f2d7ea4529
-alibaba,通义千问-Max 适合复杂任务，能力最强,旗舰模型,2.4,9.6,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0024
+alibaba,qwen-max,旗舰模型,2.4,9.6,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0024
 元 || 最低输出价格 （每千 Token）: 0.0096
 元",https://web.archive.org/web/20250725074818id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-07-25T07:48:18+00:00,31349692620595e95c20edf57ff000a3bb9857121913da30ce29e05c552a2d4d
-alibaba,通义千问-Plus 效果、速度、成本均衡,旗舰模型,0.8,2.0,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0008
+alibaba,qwen-plus,旗舰模型,0.8,2.0,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0008
 元 || 最低输出价格 （每千 Token）: 0.002
 元",https://web.archive.org/web/20250725074818id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-07-25T07:48:18+00:00,31349692620595e95c20edf57ff000a3bb9857121913da30ce29e05c552a2d4d
-alibaba,通义千问-Turbo 适合简单任务，速度快、成本极低,旗舰模型,0.3,0.6,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0003
+alibaba,qwen-turbo,旗舰模型,0.3,0.6,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0003
 元 || 最低输出价格 （每千 Token）: 0.0006
 元",https://web.archive.org/web/20250725074818id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-07-25T07:48:18+00:00,31349692620595e95c20edf57ff000a3bb9857121913da30ce29e05c552a2d4d
-alibaba,通义千问-Long 适合大规模文本分析，效果与速度均衡、成本较低,旗舰模型,0.5,2.0,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0005
+alibaba,qwen-long,旗舰模型,0.5,2.0,CNY,1K,True,lowest tier price (tiered by input length); non-authoritative source,"最低输入价格 （每千 Token）: 0.0005
 元 || 最低输出价格 （每千 Token）: 0.002
 元",https://web.archive.org/web/20250725074818id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-07-25T07:48:18+00:00,31349692620595e95c20edf57ff000a3bb9857121913da30ce29e05c552a2d4d
 alibaba,通义千问 3-32B,按模型调用量 计费,2.0,8.0,CNY,1K,True,non-authoritative source; separate thinking/non-thinking prices; first listed captured,通义千问 3-32B | 0.002 元/千 Token | 非思考模式：0.008 元/千 Token 思考模式：0.02 元/千 Token,https://web.archive.org/web/20250725074818id_/https://help.aliyun.com/zh/model-studio/billing-for-model-studio,wayback,2025-07-25T07:48:18+00:00,31349692620595e95c20edf57ff000a3bb9857121913da30ce29e05c552a2d4d
