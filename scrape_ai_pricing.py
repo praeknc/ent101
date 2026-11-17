@@ -139,7 +139,7 @@ def parse_price(text):
 
 
 def per_1m(val, unit):
-    return val * 1000 if unit == "1K" else val
+    return round(val * 1000 if unit == "1K" else val, 6)  # round off float noise
 
 
 class RateLimited(RuntimeError):
@@ -545,10 +545,16 @@ def parse_long(content, ctx):
             if header is None:
                 continue
             full = len(cells) >= len(header) - 1  # row still carries its model cells
-            if full and mcol < len(cells) and cells[mcol].strip():
-                model = " ".join(cells[mcol].split())
-            if not model or "tokenizer" in model.lower():
+            if any("tokenizer" in c.lower() or "token长度" in c for c in cells):
                 continue  # tokenizer service fee, not a model price
+            if full and mcol < len(cells):
+                name = cells[mcol].strip()
+                if name in ("", "-", "—", "--"):
+                    name = cells[0].strip()  # no version name: use the model column
+                if name:
+                    model = " ".join(name.split())
+            if not model:
+                continue
             raw = " | ".join(" ".join(c.split()) for c in cells)
             key = (section, model)
             hit = False
@@ -596,6 +602,9 @@ def parse_long(content, ctx):
             reasons.append("currency not stated")
         if cin and cout and cin != cout:
             reasons.append("currency mismatch")
+        if vin and vout and (cin or "") == (cout or "") and uin == (uout or uin) \
+                and not (0.5 <= vout / vin <= 10):
+            reasons.append(f"unusual output/input ratio ({vout / vin:.1f}x); check page for typo")
         if not ctx.get("authoritative", True):
             reasons.append("non-authoritative source")
         recs.append(dict(
