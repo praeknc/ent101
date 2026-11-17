@@ -79,8 +79,9 @@ def load(path, code):
     rows = []
     for r in csv.DictReader(open(path, encoding="utf-8")):
         d = date.fromisoformat(r["retrieved_at"][:10])
+        name = re.sub(r'\s+link$', '', r["model"])  # anchor-icon text on Google headings
         rows.append(dict(
-            src=code, provider=r["provider"], model=r["model"], key=model_key(r["model"]),
+            src=code, provider=r["provider"], model=name, key=model_key(name),
             date=d, month=d.strftime("%Y-%m"), section=r.get("section", ""),
             event=r.get("event") or ("snapshot" if code == "W" else "live"),
             inp=fnum(r["input_per_1m"]), out=fnum(r["output_per_1m"]),

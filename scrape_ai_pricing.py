@@ -452,8 +452,8 @@ def parse_gemini(content, ctx):
             # h2 = model, h3 = tier; html_blocks flattens both, so use a tier whitelist
             if TIER_LINE.match(payload):
                 tier = payload.title()
-            else:
-                model, tier = payload, ""
+            else:  # live page headings end with an anchor icon whose text is "link"
+                model, tier = re.sub(r'\s+link$', '', payload), ""
             continue
         for cells in payload:
             if len(cells) < 2:
