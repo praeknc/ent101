@@ -549,7 +549,85 @@ def parse_long(content, ctx):
     return recs
 
 
-PARSERS = {"generic": parse_generic, "gemini": parse_gemini, "long": parse_long}
+GEM_MODEL = re.compile(r'^Gemini\s+\d[\w.\- ]{0,40}$')
+GEM_PRICE = re.compile(r'\$\s?([0-9]*\.?[0-9]+)\s*/\s*(?:1\s?(K|M)\w*|one million|1 million)\s*(tokens|characters|chars)?', re.I)
+
+
+def parse_gemini_cards(content, ctx):
+    """Older ai.google.dev/pricing (2024): one card per model with 'Free of charge'
+    and 'Pay-as-you-go' blocks, each listing 'Price (input)' / 'Price (output)'
+    followed by price lines such as '$0.35 / 1 million tokens (for prompts up to
+    128K tokens)'. Pay-as-you-go base (first) price is captured."""
+    soup = BeautifulSoup(content, "lxml")
+    for t in soup(["script", "style", "noscript"]):
+        t.decompose()
+    lines = [l.strip() for l in soup.get_text("\n").splitlines() if l.strip()]
+    recs, model, paid, field = [], "", False, None
+    cur = {}
+
+    def flush():
+        if model and "in" in cur and "out" in cur:
+            recs.append(_card_row(ctx, model, cur))
+        cur.clear()
+
+    for l in lines:
+        if GEM_MODEL.match(l):
+            if l != model:
+                flush()
+                model, paid, field = l, False, None
+            continue
+        low = l.lower()
+        if low.startswith("free of charge") and field is None:
+            paid = False
+            continue
+        if low.startswith("pay-as-you-go"):
+            paid, field = True, None
+            continue
+        if re.match(r'prompts? (up to|longer|over|above)', low):
+            cur.setdefault("tier", l)  # Sep 2024+: tier is its own line above the prices
+            continue
+        if re.match(r'(price \(input\)|input pric)', low):
+            field = "in"
+            continue
+        if re.match(r'(price \(output\)|output pric)', low):
+            field = "out"
+            continue
+        m = GEM_PRICE.search(l)
+        if m and paid and field and field not in cur:
+            cur[field] = (float(m.group(1)), m.group(2).upper(), (m.group(3) or "tokens").lower(), l)
+        elif not m and field and not low.startswith("$"):
+            if cur.get(field) or "context caching" in low or "prompts/responses" in low:
+                field = None
+    flush()
+    return recs
+
+
+def _card_row(ctx, model, cur):
+    (vin, uin, kin, rin), (vout, uout, kout, rout) = cur["in"], cur["out"]
+    reasons = []
+    if "char" in kin or "char" in kout:
+        reasons.append("priced per CHARACTERS, not tokens (values are per 1M characters)")
+    tier = cur.get("tier", "")
+    if tier or re.search(r'prompts? (up to|longer|over)', rin + rout, re.I):
+        reasons.append("tiered by prompt length; base tier captured")
+        if tier:
+            rin = f"[{tier}] {rin}"
+    if not ctx.get("authoritative", True):
+        reasons.append("non-authoritative source")
+    return dict(provider=ctx["provider"], model=model, section="Pay-as-you-go",
+                input_per_1m=per_1m(vin, "1K" if uin == "K" else "1M"),
+                output_per_1m=per_1m(vout, "1K" if uout == "K" else "1M"),
+                currency="USD", unit_detected=("1M chars" if "char" in kin else "1M"),
+                needs_review=bool(reasons), review_reason="; ".join(reasons),
+                raw_row=f"IN: {rin} || OUT: {rout}")
+
+
+def parse_google(content, ctx):
+    """Current Gemini docs layout first; fall back to the 2024 card layout."""
+    return parse_gemini(content, ctx) or parse_gemini_cards(content, ctx)
+
+
+PARSERS = {"generic": parse_generic, "gemini": parse_google, "long": parse_long}
 
 
 def parse_for(provider, content, ctx):
