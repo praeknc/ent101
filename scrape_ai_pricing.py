@@ -83,7 +83,7 @@ SOURCES = [
          render="auto", parser="gemini", authoritative=True),
     # JS-rendered, must use a browser. Confirm these URLs yourself.
     dict(provider="alibaba", url="https://www.alibabacloud.com/help/en/model-studio/pricing",
-         render="yes", parser="generic", authoritative=True),
+         render="yes", parser="alibaba", authoritative=True),
     dict(provider="baidu", url="https://intl.cloud.baidu.com/zh/doc/qianfan/s/Jm8r1826a-intl",
          render="yes", parser="long", authoritative=True),  # one row per 输入/输出 sub-item
 ]
@@ -249,8 +249,9 @@ def html_blocks(html):
     soup = BeautifulSoup(html, "lxml")
     for el in soup.find_all(["h1", "h2", "h3", "h4", "table"]):
         if el.name == "table":
-            rows = [[c.get_text("\n", strip=True) for c in tr.find_all(["th", "td"])]
-                    for tr in el.find_all("tr")]
+            # only this table's own rows/cells: nested tables are yielded separately
+            rows = [[c.get_text("\n", strip=True) for c in tr.find_all(["th", "td"], recursive=False)]
+                    for tr in el.find_all("tr") if tr.find_parent("table") is el]
             yield "table", [r for r in rows if any(r)]
         else:
             # strip icon-font glyphs (Unicode private-use area) from headings
@@ -307,8 +308,8 @@ def blocks_for(content):
 # parsers
 # --------------------------------------------------------------------------
 # column synonyms: 2023-era OpenAI pages used "Prompt" / "Completion"
-COL_KEYS = {"input": ("input", "prompt"), "output": ("output", "completion"),
-            "model": ("model",), "modality": ("modality",)}
+COL_KEYS = {"input": ("input", "prompt", "输入"), "output": ("output", "completion", "输出"),
+            "model": ("model", "模型"), "modality": ("modality",)}
 
 
 def _is_col(h, key):
@@ -386,7 +387,11 @@ def parse_generic(content, ctx):
             elif header and len(cells) == len(header):
                 prev_full = cells
             mcol = _pick(header, "model", exclude=()) or 0  # "Category | Model | ..." tables
-            name = cells[mcol].split("\n")[0].strip() if mcol < len(cells) else ""
+            lines_ = [l.strip() for l in cells[mcol].split("\n") if l.strip()] if mcol < len(cells) else []
+            name = lines_[0] if lines_ else ""
+            if len(lines_) > 1 and not re.search(r'\d', name) and len(lines_[1]) <= 15 \
+                    and re.search(r'\d', lines_[1]):
+                name = f"{name} {lines_[1]}"  # "通义千问" + "3-32B" -> "通义千问 3-32B"
             name = re.sub(r'\s*\($', '', name.replace("\u200b", "")).strip()
             when = DATE_QUAL.search(cells[mcol]) if mcol < len(cells) else None
             if when and name:  # "Claude Sonnet 5 / through August 31" -> keep the date
@@ -418,6 +423,8 @@ def parse_generic(content, ctx):
                 reasons.append("currency mismatch")
             if not ctx["authoritative"]:
                 reasons.append("non-authoritative source")
+            if re.search(r'思考模式|thinking mode', " ".join(cells), re.I):
+                reasons.append("separate thinking/non-thinking prices; first listed captured")
             if "[continuation]" in name and not reasons:
                 reasons.append("blank model name (rowspan?)")
             m = PROMPT_TIER_RE.search(" ".join(cells))
@@ -695,6 +702,64 @@ def parse_google(content, ctx):
 
 
 PARSERS = {"generic": parse_generic, "gemini": parse_google, "long": parse_long}
+
+
+T_IN = re.compile(r'输入价格|输入单价|input price', re.I)
+T_OUT = re.compile(r'输出价格|输出单价|output price', re.I)
+T_NAME = re.compile(r'模型名|model name|model id|API', re.I)
+
+
+def parse_transposed(content, ctx):
+    """Tables with one COLUMN per model and one ROW per attribute, e.g. Aliyun 2024:
+      [旗舰模型,      通义千问-Max, 通义千问-Plus, ...]
+      [API调用模型名, qwen-max,     qwen-plus,     ...]
+      [最低输入价格（每千Token）, 0.02元, 0.0008元, ...]
+      [最低输出价格（每千Token）, 0.06元, 0.002元,  ...]"""
+    recs, section = [], ""
+    for kind, payload in html_blocks(content):
+        if kind == "heading":
+            section = payload
+            continue
+        rows = {}
+        for cells in payload:
+            if len(cells) < 2:
+                continue
+            lab = " ".join(cells[0].split())
+            for key, rx in (("in", T_IN), ("out", T_OUT), ("name", T_NAME)):
+                if key not in rows and rx.search(lab):
+                    rows[key] = (lab, cells[1:])
+                    break
+        if "in" not in rows or "out" not in rows:
+            continue
+        names = rows.get("name", ("", [" ".join(c.split()) for c in payload[0][1:]]))[1]
+        (lin, vin), (lout, vout) = rows["in"], rows["out"]
+        for j, name in enumerate(names):
+            if j >= len(vin) or j >= len(vout):
+                break
+            pin = parse_price(vin[j] + " " + lin)
+            pout = parse_price(vout[j] + " " + lout)
+            if not pin or not pout:
+                continue
+            reasons = []
+            if re.search(r'最低|lowest|starting', lin + lout, re.I):
+                reasons.append("lowest tier price (tiered by input length)")
+            if not ctx.get("authoritative", True):
+                reasons.append("non-authoritative source")
+            unit = pin[2] or pout[2]
+            recs.append(dict(
+                provider=ctx["provider"], model=" ".join(name.split()), section=section,
+                input_per_1m=per_1m(pin[0], unit), output_per_1m=per_1m(pout[0], unit),
+                currency=pin[1], unit_detected=unit or "1M",
+                needs_review=bool(reasons), review_reason="; ".join(reasons),
+                raw_row=f"{lin}: {vin[j]} || {lout}: {vout[j]}"))
+    return recs
+
+
+def parse_alibaba(content, ctx):
+    return parse_transposed(content, ctx) + parse_generic(content, ctx)
+
+
+PARSERS["alibaba"] = parse_alibaba
 
 
 def parse_for(provider, content, ctx):
