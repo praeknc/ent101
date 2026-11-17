@@ -709,6 +709,11 @@ T_OUT = re.compile(r'输出价格|输出单价|output price', re.I)
 T_NAME = re.compile(r'模型名|model name|model id|API', re.I)
 
 
+# Aliyun pages name the flagship models either by API id or by product name;
+# map the product names to the API ids so each model stays one series.
+QWEN_ALIAS = re.compile(r'^通义千问-?(Max|Plus|Turbo|Long)$', re.I)
+
+
 def parse_transposed(content, ctx):
     """Tables with one COLUMN per model and one ROW per attribute, e.g. Aliyun 2024:
       [旗舰模型,      通义千问-Max, 通义千问-Plus, ...]
@@ -731,7 +736,11 @@ def parse_transposed(content, ctx):
                     break
         if "in" not in rows or "out" not in rows:
             continue
-        names = rows.get("name", ("", [" ".join(c.split()) for c in payload[0][1:]]))[1]
+        if "name" in rows:
+            names = [" ".join(c.split()) for c in rows["name"][1]]
+        else:  # header cells: "通义千问-Max\n适合复杂任务，能力最强" -> keep the name line only
+            names = [(c.split("\n")[0] if c.strip() else "").strip() for c in payload[0][1:]]
+        names = [QWEN_ALIAS.sub(lambda m: "qwen-" + m.group(1).lower(), n) for n in names]
         (lin, vin), (lout, vout) = rows["in"], rows["out"]
         for j, name in enumerate(names):
             if j >= len(vin) or j >= len(vout):
