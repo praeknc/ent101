@@ -771,7 +771,151 @@ def parse_transposed(content, ctx):
     return recs
 
 
+def table_grid(table):
+    """Expand rowspan/colspan into a full rectangular grid of cell texts."""
+    grid, pending = [], {}  # pending[col] = (text, rows_left)
+    for tr in [tr for tr in table.find_all("tr") if tr.find_parent("table") is table]:
+        row, col = [], 0
+        it = iter(tr.find_all(["th", "td"], recursive=False))
+        while True:
+            if col in pending:
+                txt, left = pending[col]
+                row.append(txt)
+                if left <= 1:
+                    del pending[col]
+                else:
+                    pending[col] = (txt, left - 1)
+                col += 1
+                continue
+            c = next(it, None)
+            if c is None:
+                if any(k >= col for k in pending):
+                    continue
+                break
+            txt = c.get_text("\n", strip=True)
+            rs, cs = int(c.get("rowspan", 1) or 1), int(c.get("colspan", 1) or 1)
+            for _ in range(cs):
+                row.append(txt)
+                if rs > 1:
+                    pending[col] = (txt, rs - 1)
+                col += 1
+        grid.append(row)
+    return grid
+
+
+ALI_PRICE = re.compile(r'\$\s?([0-9][0-9,]*(?:\.[0-9]+)?)')
+
+
+def _ali_price(cell):
+    """'Original$0.4 (20% off...)' / 'Peak $0.3 Off-peak $0.15' / '$2.400'
+    -> (first $ amount = list or peak price, notes)."""
+    m = ALI_PRICE.search(cell or "")
+    if not m:
+        return None, []
+    notes = []
+    if re.search(r'original', cell, re.I):
+        notes.append("list price shown; limited-time discount available")
+    if re.search(r'off-peak', cell, re.I):
+        notes.append("peak price; off-peak cheaper")
+    return float(m.group(1).replace(",", "")), notes
+
+
+def parse_alibaba_tabs(content, ctx):
+    """Alibaba Cloud Model Studio 'model-pricing' page (2026): one heading per model
+    family, region tabs (Singapore, China (Beijing), US (Virginia), ...) each holding
+    a table with Model ID / Service Deployment Scope / Pattern / input-token tier /
+    input / output price per 1M tokens, cells spanning several rows. Image, video
+    and audio tables (not priced per token) are skipped."""
+    soup = BeautifulSoup(content, "lxml")
+    recs, family, seen = [], "", set()
+    for el in soup.find_all(["h2", "h3", "h4", "table"]):
+        if el.name != "table":
+            family = re.sub(r'[\ue000-\uf8ff\u200b]', '', el.get_text(" ", strip=True))
+            continue
+        if el.find_parent("table") is not None:
+            continue
+        grid = table_grid(el)
+        nh = 0
+        while nh < len(grid) and not any("$" in c for c in grid[nh]):
+            nh += 1
+        if not nh or nh == len(grid):
+            continue
+        width = max(len(r) for r in grid)
+        head = [" ".join(" ".join(grid[h][j].split()) for h in range(nh) if j < len(grid[h])
+                         ).lower() for j in range(width)]
+        col = lambda f: next((j for j, h in enumerate(head) if f(h)), None)
+        cm = col(lambda h: h.startswith("model id"))
+        ci = col(lambda h: "input unit price" in h and ("million" in h or "token" in h)
+                 and "cache" not in h)
+        outs = [j for j, h in enumerate(head) if "output unit price" in h
+                and ("million" in h or "token" in h)]
+        if cm is None or ci is None or not outs:
+            continue  # cache, batch, image, video, audio tables
+        cscope = col(lambda h: "deployment scope" in h)
+        cpat = col(lambda h: h.startswith("pattern"))
+        ctier = col(lambda h: "token" in h and ("range" in h or "per request" in h)
+                    and "price" not in h)
+        region = ""  # nearest enclosing section that is a region tab (skips accordions)
+        for sec in el.find_parents("section"):
+            tab = soup.find(id=sec.get("id", "") + "-h4") if sec.get("id") else None
+            if tab is not None:
+                region = tab.get_text(" ", strip=True)
+                break
+        for r in grid[nh:]:
+            if len(r) <= max([cm, ci] + outs):
+                continue
+            model = r[cm].split("\n")[0].strip()
+            pin, nin = _ali_price(r[ci])
+            if not model or pin is None:
+                continue
+            scope = r[cscope].strip() if cscope is not None else ""
+            pattern = " ".join(r[cpat].split()) if cpat is not None else ""
+            tier = " ".join(r[ctier].split()) if ctier is not None else ""
+            # several output columns = non-thinking vs thinking prices
+            variants = []
+            for j in outs:
+                pout, nout = _ali_price(r[j])
+                if pout is None:
+                    continue
+                label = head[j].replace("output unit price", "").replace("(per million tokens)", "")
+                label = "thinking" if "thinking mode" in label and "non-thinking" not in label \
+                    else ("non-thinking" if "non-thinking" in label else "")
+                variants.append((label, pout, nout))
+            if len({v[1] for v in variants}) == 1:
+                variants = variants[:1]
+                variants[0] = ("", variants[0][1], variants[0][2])
+            for label, pout, nout in variants:
+                name = model + (f" [{label}]" if label else "")
+                reasons = list(dict.fromkeys(nin + nout))
+                if re.search(r'no tiered', tier, re.I):
+                    tier = ""  # flat price, i.e. the base price
+                if tier and not re.match(r'^0\s*<', tier):
+                    name += f" ({tier})"
+                    reasons.append("higher input-length tier")
+                elif tier:
+                    reasons.append(f"tiered by input length; base tier {tier}")
+                if pattern:
+                    reasons.append(f"pattern: {pattern}")
+                if not ctx.get("authoritative", True):
+                    reasons.append("non-authoritative source")
+                section = " / ".join(x for x in (family, region, scope) if x)
+                key = (section, name, pin, pout)
+                if key in seen:
+                    continue
+                seen.add(key)
+                recs.append(dict(
+                    provider=ctx["provider"], model=name, section=section,
+                    input_per_1m=pin, output_per_1m=pout, currency="USD", unit_detected="1M",
+                    needs_review=bool(reasons), review_reason="; ".join(reasons),
+                    raw_row=" | ".join(" ".join(c.split()) for c in r)[:300]))
+    return recs
+
+
 def parse_alibaba(content, ctx):
+    if "tabbed-content-box" in content and "Model ID" in content:
+        recs = parse_alibaba_tabs(content, ctx)
+        if recs:
+            return recs
     return parse_transposed(content, ctx) + parse_generic(content, ctx)
 
 
