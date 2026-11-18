@@ -41,9 +41,42 @@ Tier rules:
 
 - **Model.** `data/reference/model_crosswalk.csv` maps one canonical `model_id` to the OpenRouter slug, the HF repo, the `part_a_model_id` and free-text aliases. OpenRouter variant suffixes (`:free`, `:beta`, …) are stripped for matching but kept in `note`. Any id that does not match is written to `data/processed/unmatched_ids.txt` and listed in the coverage report. Unmatched ids are never dropped silently.
 - **Provider.** `provider_id` in the crosswalk. `package_map.csv` maps SDK packages to providers.
-- **Date.** The demand period is matched to Part A **as of the period end**: the last price on or before the period end, within 92 days. The alternative, `--how period_mean`, averages Part A prices inside the period. The merge also adds a `_lag1` column for each price.
+- **Date.** With the cleaned Part A panel (the default), the merge joins on the same month (`--how exact`), so the cleaner's carry-forward rules apply. For any other prices file, the default is **as of the period end**: the last price on or before the period end, within 92 days. Alternatively, `--how period_mean` averages prices inside the period. The merge adds `_lag1` columns (previous month, consecutive months only) and the overall and maker price indices.
 
-### Part A input contract
+### Part A prices: `python -m demand_panel part-a`
+
+This command cleans the Part A workbook (`data/raw/part_a/AI_API_price_panel.xlsx`, sheet *Panel (USD)*) plus the raw live scrape (`data/raw/part_a/prices_live.csv`). The output is a **model × month price panel** that the merge uses by default. The code is in `part_a.py`, and every rule and its row counts are in [`docs/part_a_cleaning_report.md`](../docs/part_a_cleaning_report.md).
+
+| Problem in the raw panel | Rule |
+|---|---|
+| Standard / Batch / Flex / Priority / Fast / fine-tune rows mixed together | Standard tier only. LiteLLM `fast/` entries count as priority |
+| 2026 archived OpenAI pages have no tier labels | Pick the candidate closest to a labelled standard price for the same model within 400 days (±25%); otherwise drop |
+| Dated snapshots (`gpt-4o-2024-05-13`) share a key with the alias | Use alias rows when a source has them |
+| Alibaba regions with different prices; LiteLLM `us/` +10% entries | International/Singapore, then US, then Global, then Hong Kong; one region per model and source |
+| Thinking vs non-thinking, long-context tiers | Non-thinking, base context tier |
+| Resellers (Alibaba or Baidu selling DeepSeek/Kimi/GLM; `azure/`, `openrouter/`) | One host per model: the maker if it sells the model, else its main host (`third_party_host` flag) |
+| RMB prices converted at monthly FX | `price_*_local` columns; price changes measured in the list currency |
+| Image, audio, embedding, vision, moderation, tool endpoints | Dropped (text LLMs only) |
+| LiteLLM lags (README says to prefer W over L) | W/Live beat L on the same date; L only moves prices on `first_seen`/`changed` events |
+| Snapshot gaps | W/Live carried at most 6 months; L (a change log) carried until its next event or removal |
+| `-latest` aliases and source corrections | Kept in the panel but flagged (`is_alias_pointer`, `suspect_change` for >+300% or exact ×10 jumps) and left out of the index |
+
+Outputs go to `data/processed/part_a/`:
+
+| File | Contents |
+|---|---|
+| `part_a_prices_M.csv` | One row per model × month. Columns: `price_in/out/cached_in_usd_per_mtok`, `price_blended_3to1_usd_per_mtok`, local-currency prices, `price_change_pct`, `price_cut`, `price_rise`, `months_since_obs`, `price_source`, `market`, `maker`, `host`, quality flags |
+| `part_a_index_M.csv` | Overall index: chained matched-model Jevons, local currency |
+| `part_a_index_maker_M.csv` | Index by maker |
+| `part_a_index_market_M.csv` | Index by market |
+| `part_a_observations.csv` | One observation per model × market × date, after the selection rules |
+| `part_a_rows_classified.csv` | Every raw row with its `drop_reason` |
+
+The command also adds every priced Part A model to `data/reference/model_crosswalk.csv`, with `model_id = maker/key` and `part_a_model_id = key`. Seed models get linked to their Part A key. To skip this, use `--no-sync-crosswalk`.
+
+**Still needs a hand check:** the largest cuts and rises listed in the cleaning report. Claude Instant 1.2's −90% in 2023-11 and Gemini 1.5 Pro's +900% in 2024-07 are both flagged as LiteLLM unit slips.
+
+### Part A input contract (for other price files)
 
 ```
 prices.csv : model_id, date, <numeric price cols>    (model_id = Part A id)
@@ -65,7 +98,8 @@ python -m demand_panel collect npm --start 2024-06-01 --end 2026-10-31
 python -m demand_panel load openrouter data/raw/openrouter_export.csv --freq W
 python -m demand_panel load manual                            # data/manual/*.csv
 python -m demand_panel build --freq M --start 2023-01 --end 2026-11
-python -m demand_panel merge --prices ../partA/prices.csv --index ../partA/index.csv --index-by provider_id
+python -m demand_panel part-a                                 # clean Part A -> model x month prices + index
+python -m demand_panel merge                                  # demand panel + Part A prices + indices
 python -m pytest tests
 ```
 

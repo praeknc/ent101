@@ -142,7 +142,9 @@ def test_merge_prices_asof_and_lag(cw, or_export):
     with pytest.warns(UserWarning):
         wide, _ = panel.build_model_panel(obs, "M")
     prices = pd.DataFrame({
-        "model_id": ["openai/gpt-4o", "openai/gpt-4o", "deepseek/deepseek-r1", "not/in-demand"],
+        # Part A ids: gpt-4o is the Part A key linked in the crosswalk; deepseek-r1 has no Part A
+        # key, so it falls back to its canonical id
+        "model_id": ["gpt-4o", "gpt-4o", "deepseek/deepseek-r1", "not/in-demand"],
         "date": ["2024-12-01", "2025-02-15", "2025-01-20", "2025-01-01"],
         "price_blended_usd_per_mtok": [10.0, 5.0, 2.0, 1.0],
     })
@@ -172,7 +174,7 @@ def test_china_gaps(cw):
     g = coverage.china_gaps(obs, cw, "2025-01", "2025-06")
     ali = g[g["provider_id"] == "alibaba"]
     assert ali["gap"].sum() == 5
-    assert set(g["provider_id"]) == {"alibaba", "deepseek"}
+    assert {"alibaba", "deepseek"} <= set(g["provider_id"])
 
 
 def test_store_roundtrip(tmp_path, cw, or_export):

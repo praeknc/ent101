@@ -38,17 +38,31 @@ def _value_cols(df: pd.DataFrame, exclude) -> list[str]:
 
 
 def merge_prices(panel: pd.DataFrame, prices: pd.DataFrame, cw: Crosswalk, how: str = "asof",
-                 tolerance_days: int = 92, key: str = "model_id") -> tuple[pd.DataFrame, dict]:
-    """Attach Part A model prices to a model x period panel. Returns (merged, diagnostics)."""
+                 tolerance_days: int = 92, key: str = "model_id",
+                 lag_cols: list[str] | None = None) -> tuple[pd.DataFrame, dict]:
+    """Attach Part A model prices to a model x period panel. Returns (merged, diagnostics).
+
+    how="exact" joins on the period (use with the cleaned monthly Part A panel, which already
+    applies its own carry-forward rules); "asof" and "period_mean" are for raw dated prices.
+    """
     panel = panel.copy()
     prices = prices.copy()
     prices["date"] = pd.to_datetime(prices["date"]).dt.normalize()
     pcols = _value_cols(prices, {key, "date"})
+    lag_cols = [c for c in (lag_cols if lag_cols is not None else pcols) if c in prices.columns]
+    clash = [c for c in prices.columns if c in panel.columns and c not in (key, "date", "period")]
+    prices = prices.rename(columns={c: f"{c}_part_a" for c in clash})
     panel["_part_a_id"] = panel[key].map(cw.part_a_id)
     panel["_date"] = _period_end(panel)
     prices = prices.rename(columns={key: "_part_a_id"})
 
-    if how == "asof":
+    if how == "exact":
+        per = panel["period"].iloc[0].freqstr if len(panel) else "M"
+        prices["period"] = prices["date"].dt.to_period(per)
+        merged = panel.merge(prices.rename(columns={"date": "part_a_price_date"}),
+                             on=["_part_a_id", "period"], how="left")
+    elif how == "asof":
+        prices = prices.drop(columns=[c for c in ["period"] if c in prices.columns])
         left = panel.sort_values("_date")
         right = prices.sort_values("date")
         merged = pd.merge_asof(left, right, left_on="_date", right_on="date", by="_part_a_id",
@@ -60,15 +74,17 @@ def merge_prices(panel: pd.DataFrame, prices: pd.DataFrame, cw: Crosswalk, how: 
         pm = prices.groupby(["_part_a_id", "period"], as_index=False)[pcols].mean()
         merged = panel.merge(pm, on=["_part_a_id", "period"], how="left")
     else:
-        raise ValueError("how must be 'asof' or 'period_mean'")
+        raise ValueError("how must be 'exact', 'asof' or 'period_mean'")
 
     merged = merged.sort_values([key, "period"])
-    for c in pcols:
-        merged[f"{c}_lag1"] = merged.groupby(key)[c].shift()
+    for c in lag_cols:
+        prev_ok = merged.groupby(key)["period"].shift() == merged["period"] - 1
+        merged[f"{c}_lag1"] = merged.groupby(key)[c].shift().where(prev_ok)
 
     demand_ids = set(panel["_part_a_id"])
     price_ids = set(prices["_part_a_id"])
-    matched_rows = merged[pcols[0]].notna() if pcols else pd.Series(False, index=merged.index)
+    main = lag_cols[0] if lag_cols else (pcols[0] if pcols else None)
+    matched_rows = merged[main].notna() if main else pd.Series(False, index=merged.index)
     diag = {
         "rows": len(merged),
         "rows_with_price": int(matched_rows.sum()),
@@ -85,6 +101,7 @@ def merge_index(panel: pd.DataFrame, index: pd.DataFrame, by: list[str] | None =
     by = by or []
     index = index.copy()
     index["date"] = pd.to_datetime(index["date"]).dt.normalize()
+    index = index.drop(columns=[c for c in ["period"] if c in index.columns])
     icols = _value_cols(index, set(by) | {"date"})
     left = panel.copy()
     left["_date"] = _period_end(left)

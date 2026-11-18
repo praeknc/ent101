@@ -9,7 +9,9 @@
     python -m demand_panel load openrouter data/raw/openrouter_export.csv
     python -m demand_panel load manual
     python -m demand_panel build --freq M --start 2023-01 --end 2026-10
-    python -m demand_panel merge --prices partA_prices.csv [--index partA_index.csv] [--date-col X --model-col Y]
+    python -m demand_panel part-a --xlsx data/raw/part_a/AI_API_price_panel.xlsx --live-csv data/raw/part_a/prices_live.csv
+    python -m demand_panel merge                      # uses the cleaned Part A panel + index
+    python -m demand_panel merge --prices other_prices.csv [--index idx.csv] [--date-col X --model-col Y]
 
 All raw observations go to data/processed/observations.csv (append, de-duplicated).
 """
@@ -111,11 +113,22 @@ def main(argv=None) -> None:
     b.add_argument("--start", default="2023-01")
     b.add_argument("--end", default=pd.Timestamp.today().strftime("%Y-%m"))
     b.add_argument("--include-validation", action="store_true")
+    pa_ = sub.add_parser("part-a", help="clean the Part A price workbook into a model x month panel")
+    pa_.add_argument("--xlsx", default=str(DATA / "raw" / "part_a" / "AI_API_price_panel.xlsx"))
+    pa_.add_argument("--live-csv", default=str(DATA / "raw" / "part_a" / "prices_live.csv"),
+                     help="raw live-scrape CSV ('' to skip)")
+    pa_.add_argument("--freq", default="M")
+    pa_.add_argument("--market", default="intl_first", choices=["intl_first", "INTL", "CN"])
+    pa_.add_argument("--max-carry-months", type=int, default=6)
+    pa_.add_argument("--keep-tier-guess", action="store_true",
+                     help="keep unlabelled-tier rows that cannot be matched (median guess)")
+    pa_.add_argument("--no-sync-crosswalk", action="store_true")
     m = sub.add_parser("merge")
-    m.add_argument("--prices", required=True)
+    m.add_argument("--prices", default=None, help="default: data/processed/part_a/part_a_prices_M.csv")
     m.add_argument("--index")
     m.add_argument("--index-by", default="", help="comma-separated key columns of the index file")
-    m.add_argument("--how", default="asof", choices=["asof", "period_mean"])
+    m.add_argument("--how", default=None, choices=["exact", "asof", "period_mean"],
+                   help="default: exact for the cleaned Part A panel, asof otherwise")
     m.add_argument("--freq", default="M")
     m.add_argument("--date-col", help="date column in the prices/index files (auto-detected if omitted)")
     m.add_argument("--model-col", help="model id column in the prices file (auto-detected if omitted)")
@@ -167,20 +180,68 @@ def main(argv=None) -> None:
         coverage.write_report(obs, cw, ROOT / "docs" / "coverage_report.md", args.start, args.end,
                               args.freq, um)
         print("wrote docs/coverage_report.md")
+    elif args.cmd == "part-a":
+        from . import part_a
+        pa_dir = DATA / "processed" / "part_a"
+        pa_dir.mkdir(parents=True, exist_ok=True)
+        live = args.live_csv if args.live_csv and Path(args.live_csv).exists() else None
+        raw = part_a.load(args.xlsx, live)
+        rows = part_a.classify(raw)
+        res = part_a.select_observations(rows, keep_tier_guess=args.keep_tier_guess)
+        pan = part_a.monthly_panel(res, args.freq, max_carry_months=args.max_carry_months,
+                                   market_mode=args.market)
+        idx_all = part_a.price_index(pan)
+        idx_maker = part_a.price_index(pan, by="maker")
+        idx_market = part_a.price_index(pan, by="market")
+        f = args.freq
+        res.rows.to_csv(pa_dir / "part_a_rows_classified.csv", index=False)
+        res.obs.to_csv(pa_dir / "part_a_observations.csv", index=False)
+        pan.to_csv(pa_dir / f"part_a_prices_{f}.csv", index=False)
+        idx_all.rename(columns={"n_models": "n_models_all"}).to_csv(pa_dir / f"part_a_index_{f}.csv", index=False)
+        idx_maker.rename(columns={"n_models": "n_models_maker"}).to_csv(pa_dir / f"part_a_index_maker_{f}.csv",
+                                                                        index=False)
+        idx_market.to_csv(pa_dir / f"part_a_index_market_{f}.csv", index=False)
+        part_a.write_report(res, pan, ROOT / "docs" / "part_a_cleaning_report.md",
+                            [Path(args.xlsx).name] + ([Path(live).name] if live else []))
+        print(f"Part A: {len(raw)} raw rows -> {len(res.obs)} observations -> {len(pan)} model-months, "
+              f"{pan['model_id'].nunique()} models; files in {pa_dir}")
+        print("report: docs/part_a_cleaning_report.md")
+        if not args.no_sync_crosswalk:
+            filled, added = part_a.sync_crosswalk(pan, res.rows, DATA / "reference" / "model_crosswalk.csv")
+            print(f"crosswalk: linked {filled} existing models to Part A keys, added {added} Part A models")
     elif args.cmd == "merge":
+        from .merge import merge_index, merge_prices
         out = DATA / "processed"
+        pa_dir = out / "part_a"
         mp = pd.read_csv(out / f"model_panel_{args.freq}.csv")
         mp["period"] = pd.PeriodIndex(mp["period"], freq=args.freq)
-        from .merge import merge_index, merge_prices
-        prices = _load_part_a(args.prices, args.date_col, args.model_col, need_model=True)
-        merged, diag = merge_prices(mp, prices, cw, how=args.how)
+        mp["maker"] = mp["model_id"].map(cw.provider_of)
+        cleaned = args.prices is None
+        prices_path = args.prices or pa_dir / f"part_a_prices_{args.freq}.csv"
+        if cleaned and not Path(prices_path).exists():
+            sys.exit("No cleaned Part A panel yet. Run: python -m demand_panel part-a")
+        prices = _load_part_a(prices_path, args.date_col, args.model_col, need_model=True)
+        how = args.how or ("exact" if cleaned else "asof")
+        lag = [c for c in ["price_in_usd_per_mtok", "price_out_usd_per_mtok",
+                           "price_blended_3to1_usd_per_mtok", "log_price_blended"] if c in prices.columns]
+        merged, diag = merge_prices(mp, prices, cw, how=how, lag_cols=lag or None)
         if args.index:
             by = [c for c in args.index_by.split(",") if c]
             idx = _load_part_a(args.index, args.date_col, None, need_model=False)
             merged, d2 = merge_index(merged, idx, by=by)
             diag["index"] = d2
+        elif cleaned:
+            for fname, by in [(f"part_a_index_{args.freq}.csv", []),
+                              (f"part_a_index_maker_{args.freq}.csv", ["maker"])]:
+                fp = pa_dir / fname
+                if fp.exists():
+                    idx = pd.read_csv(fp)
+                    merged, diag[f"index:{fname}"] = merge_index(merged, idx, by=by)
         merged.to_csv(out / f"model_panel_merged_{args.freq}.csv", index=False)
-        print(json.dumps(diag, indent=2, default=str))
+        short = {k: (v if not isinstance(v, list) or len(v) <= 15 else v[:15] + [f"... {len(v) - 15} more"])
+                 for k, v in diag.items()}
+        print(json.dumps(short, indent=2, default=str, ensure_ascii=False))
+        print(f"wrote {out / f'model_panel_merged_{args.freq}.csv'}")
 
 
 if __name__ == "__main__":
