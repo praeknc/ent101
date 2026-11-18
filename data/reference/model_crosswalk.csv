@@ -1,0 +1,12 @@
+model_id,provider_id,model_family,origin_country,open_weights,release_date,openrouter_slug,hf_repo_id,part_a_model_id,aliases
+openai/gpt-4o,openai,gpt-4o,US,False,2024-05-13,openai/gpt-4o,,openai/gpt-4o,gpt-4o|gpt-4o-2024-08-06|chatgpt-4o-latest
+openai/gpt-4o-mini,openai,gpt-4o,US,False,2024-07-18,openai/gpt-4o-mini,,openai/gpt-4o-mini,gpt-4o-mini|gpt-4o-mini-2024-07-18
+anthropic/claude-3.5-sonnet,anthropic,claude-3.5,US,False,2024-06-20,anthropic/claude-3.5-sonnet,,anthropic/claude-3.5-sonnet,claude-3-5-sonnet-20241022|claude-3-5-sonnet-20240620|claude 3.5 sonnet
+anthropic/claude-3.7-sonnet,anthropic,claude-3.7,US,False,2025-02-24,anthropic/claude-3.7-sonnet,,anthropic/claude-3.7-sonnet,claude-3-7-sonnet-20250219|claude 3.7 sonnet
+google/gemini-2.0-flash,google,gemini-2.0,US,False,2025-02-05,google/gemini-2.0-flash-001,,google/gemini-2.0-flash,gemini-2.0-flash-001|gemini 2.0 flash
+meta/llama-3.1-8b-instruct,meta,llama-3.1,US,True,2024-07-23,meta-llama/llama-3.1-8b-instruct,meta-llama/Llama-3.1-8B-Instruct,meta/llama-3.1-8b-instruct,llama-3.1-8b-instruct|meta-llama-3.1-8b-instruct
+meta/llama-3.3-70b-instruct,meta,llama-3.3,US,True,2024-12-06,meta-llama/llama-3.3-70b-instruct,meta-llama/Llama-3.3-70B-Instruct,meta/llama-3.3-70b-instruct,llama-3.3-70b-instruct
+mistral/mistral-7b-instruct,mistral,mistral-7b,FR,True,2023-09-27,mistralai/mistral-7b-instruct,mistralai/Mistral-7B-Instruct-v0.3,mistral/mistral-7b-instruct,mistral-7b-instruct-v0.3
+deepseek/deepseek-v3,deepseek,deepseek-v3,CN,True,2024-12-26,deepseek/deepseek-chat,deepseek-ai/DeepSeek-V3,deepseek/deepseek-v3,deepseek-chat|deepseek v3
+deepseek/deepseek-r1,deepseek,deepseek-r1,CN,True,2025-01-20,deepseek/deepseek-r1,deepseek-ai/DeepSeek-R1,deepseek/deepseek-r1,deepseek-reasoner|deepseek r1
+qwen/qwen2.5-72b-instruct,alibaba,qwen2.5,CN,True,2024-09-19,qwen/qwen-2.5-72b-instruct,Qwen/Qwen2.5-72B-Instruct,qwen/qwen2.5-72b-instruct,qwen2.5-72b-instruct|qwen-2.5-72b

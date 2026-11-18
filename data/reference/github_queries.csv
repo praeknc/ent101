@@ -1,0 +1,8 @@
+provider_id,query,label,precision_audit
+openai,"openai in:name,description,readme",openai_mention,"Broad: includes OpenAI-compatible use by other providers. Audit 50 random repos per year and record share that call OpenAI."
+anthropic,"anthropic OR claude in:name,description,readme",anthropic_mention,"'claude' also matches unrelated names; audit."
+google,"gemini OR google-genai in:name,description,readme",google_gemini_mention,"'gemini' also matches the Gemini crypto exchange and protocol; audit."
+mistral,"mistral OR mistralai in:name,description,readme",mistral_mention,
+deepseek,"deepseek in:name,description,readme",deepseek_mention,"Mixes API use and local open-weight use."
+alibaba,"qwen OR dashscope in:name,description,readme",qwen_mention,"Mixes API use and local open-weight use."
+__all__,,all_new_repos,"Normaliser: all public repos created in the month."

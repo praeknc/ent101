@@ -1,0 +1,9 @@
+provider_id,period,variable,value,n_obs,sources,tier,any_estimate
+alibaba,2026-11,hf_downloads_30d,157310.0,1,huggingface,A,False
+alibaba,2026-11,hf_downloads_alltime,9201538.0,1,huggingface,A,False
+deepseek,2026-11,hf_downloads_30d,3092217.0,2,huggingface,A,False
+deepseek,2026-11,hf_downloads_alltime,75661287.0,2,huggingface,A,False
+meta,2026-11,hf_downloads_30d,4493696.0,2,huggingface,A,False
+meta,2026-11,hf_downloads_alltime,209967096.0,2,huggingface,A,False
+mistral,2026-11,hf_downloads_30d,1815664.0,1,huggingface,A,False
+mistral,2026-11,hf_downloads_alltime,50112664.0,1,huggingface,A,False

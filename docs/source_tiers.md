@@ -1,0 +1,134 @@
+# Demand-side sources: tiers, coverage and sampling bias
+
+Generated from `demand_panel/sources.py`. Edit there, then run `python -m demand_panel docs`.
+
+## Tier definitions
+
+- **A**: Systematic machine-readable log of behaviour, consistent definition, known (possibly self-selected) population. Main outcome variables.
+- **B**: Behavioural but indirect proxy, or attributable first-party aggregates that are unaudited and irregular. Robustness outcomes and level anchors.
+- **C**: Announcements, rankings, surveys, third-party estimates. Description, triangulation, validation.
+
+## Summary
+
+| source_id | tier | category | entity_level | native_freq | region | collection | merge_level | validation_only |
+|---|---|---|---|---|---|---|---|---|
+| openrouter | A | usage_aggregator | model_x_app | W | global | export | model | False |
+| github | B | developer_activity | provider | M | global | api | provider | False |
+| pypi | B | developer_activity | package | D | global | api | provider | False |
+| npm | B | developer_activity | package | D | global | api | provider | False |
+| huggingface | A | developer_activity | model | snapshot | global | api | model | False |
+| provider_disclosures | B | provider_disclosure | provider | irregular | global | manual | provider | False |
+| china_demand | C | china | provider | irregular | CN | manual | provider | False |
+| external_benchmarks | C | external_benchmark | market | irregular | global | manual | market | True |
+
+## `openrouter`: OpenRouter rankings (token volume by model and by app) (tier A)
+
+**Can show.** Relative token demand across models from many providers routed through one gateway; switching between models over time; which apps drive which models; response of usage share to price changes on the same platform.
+
+**Cannot show.** Total market demand or first-party API traffic (direct OpenAI/Anthropic/Google API calls and consumer chat apps never touch the router); revenue; enterprise contracts; usage inside China.
+
+**Sampling-bias notes.**
+
+- Self-selected users: price-sensitive developers, hobbyists and agent/coding tools that want multi-model routing are over-represented; large enterprises are under-represented.
+- A few heavy apps (coding agents, role-play) dominate tokens; one app switching model can move a model's share by several points. Report shares with and without the top apps.
+- Free and promotional model variants inflate tokens for some open-weight models; keep ':free' variants as a separate flag rather than merging them silently.
+- Rankings show only the top-N models/apps per period; long tail is left-censored (record as missing, not zero).
+- Platform growth itself raises all levels; use shares or normalise by platform total.
+
+Reference: https://openrouter.ai/rankings
+
+## `github`: GitHub new repositories mentioning a provider SDK or endpoint (tier B)
+
+**Can show.** Flow of new developer projects building on each provider; timing of developer interest after launches and price cuts.
+
+**Cannot show.** Production usage or spend; private/enterprise repositories; whether a mentioned SDK is actually called; model-level choice within a provider.
+
+**Sampling-bias notes.**
+
+- Public repositories only; hobby, tutorial and student projects dominate counts.
+- Keyword search matches mentions, not imports; tune queries and audit a random sample (record precision in the query table).
+- OpenAI-compatible endpoints mean many non-OpenAI projects mention 'openai'; this inflates OpenAI counts.
+- GitHub user base grows over time; normalise by all new repos in the same month.
+- Search index is revised; counts for a past month can change when re-queried. Keep retrieval date.
+
+Reference: https://docs.github.com/en/rest/search/search
+
+## `pypi`: PyPI downloads of provider SDK packages (tier B)
+
+**Can show.** Installation activity for first-party SDKs (openai, anthropic, google-genai, mistralai, ...); trend and relative growth across providers.
+
+**Cannot show.** Distinct users or projects; spend; model-level demand; usage through raw HTTP or OpenAI-compatible SDKs pointed at other providers.
+
+**Sampling-bias notes.**
+
+- Dominated by CI pipelines and container builds, not people; levels are not users.
+- The 'openai' package is used to call many other providers via compatible endpoints.
+- Mirror traffic excluded (pypistats without_mirrors); version bumps cause re-install spikes.
+- pypistats API keeps only ~180 days; longer history needs the BigQuery public dataset.
+
+Reference: https://pypistats.org/api/
+
+## `npm`: npm downloads of provider SDK packages (tier B)
+
+**Can show.** JavaScript/TypeScript SDK installation activity; complements PyPI for web apps.
+
+**Cannot show.** Same limits as PyPI: not users, not spend, not model choice.
+
+**Sampling-bias notes.**
+
+- CI and bundler installs dominate; dependency of popular frameworks drives counts.
+- Scoped packages (@anthropic-ai/sdk, @google/genai) were renamed over time; chain old and new package names in the package map.
+
+Reference: https://github.com/npm/registry/blob/main/docs/download-counts.md
+
+## `huggingface`: Hugging Face downloads and derivatives of open-weight models (tier A)
+
+**Can show.** Demand for self-hosted open weights (downloads, likes, number of fine-tunes); the outside option to paid APIs; Chinese open-weight models' global uptake.
+
+**Cannot show.** Inference volume after download; closed models; downloads via mirrors (ModelScope, hf-mirror) or other hosts; historical values before collection started (API returns only rolling 30-day and all-time totals).
+
+**Sampling-bias notes.**
+
+- One download = one file fetch by any client, incl. CI and re-downloads; not users.
+- Quantised re-uploads by third parties split demand across repos; aggregate via the crosswalk's base model, keep repo-level too.
+- No history from the API: a panel exists only from the first snapshot. Schedule collection weekly; derive period flows from all-time differences.
+- Chinese users often download from ModelScope; HF under-counts CN demand.
+
+Reference: https://huggingface.co/docs/hub/api
+
+## `provider_disclosures`: Provider disclosures: filings, earnings calls, official blog/keynote statements (tier B)
+
+**Can show.** Absolute scale: tokens processed, AI revenue run-rate, API vs. consumer split, customer and developer counts. Anchors the relative measures to levels.
+
+**Cannot show.** Model-level or price-tier detail; consistent definitions over time; anything a firm chooses not to disclose (selection on good news).
+
+**Sampling-bias notes.**
+
+- Unaudited and strategically timed: firms disclose when numbers look good.
+- Definitions drift (monthly vs. daily tokens, run-rate vs. recognised revenue, 'developers' vs. 'customers'). Store the exact quote and unit; never harmonise silently.
+- Sparse: a handful of points per firm per year. Do not interpolate into the monthly panel; use as level anchors or in a separate provider x quarter panel.
+- Private firms (OpenAI, Anthropic) disclose via press and interviews, not filings: mark is_estimate when the figure is reported second-hand.
+
+## `china_demand`: Chinese demand: public usage announcements and platform rankings (tier C)
+
+**Can show.** Order-of-magnitude token volumes announced by Chinese providers and cloud platforms (e.g. daily token calls at developer conferences); app-store and platform ranking positions; direction of change around domestic price cuts.
+
+**Cannot show.** A comparable time series; model-level usage shares; any audited measure; usage of foreign models in China (largely unavailable).
+
+**Sampling-bias notes.**
+
+- Announcement-driven: numbers appear at launches and conferences, gaps in between.
+- Metric definitions differ by firm (daily vs. cumulative tokens; calls vs. tokens).
+- Rankings are ordinal and published by parties with commercial interests.
+- Expect THIN coverage. The coverage report lists every model x month cell with no Chinese demand data; thesis text must state these gaps rather than impute them.
+
+## `external_benchmarks`: Official adoption surveys and job postings (tier C)
+
+**Can show.** Economy-wide adoption rates (e.g. statistical-office business surveys) and labour demand for provider-specific skills; used to check that platform-based measures track broader adoption.
+
+**Cannot show.** Model choice or price response; anything at weekly frequency.
+
+**Sampling-bias notes.**
+
+- Survey frames, questions and waves differ by country and year.
+- Job-posting keyword counts reflect hiring cycles and posting practices, not usage.

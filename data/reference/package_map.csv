@@ -1,0 +1,16 @@
+ecosystem,package,provider_id,sdk_role,valid_from,valid_to,note
+pypi,openai,openai,first_party,,,Also used for OpenAI-compatible endpoints of other providers: upper bound for OpenAI
+pypi,anthropic,anthropic,first_party,,,
+pypi,google-generativeai,google,first_party,,2025-12-31,Legacy Gemini SDK; chain with google-genai
+pypi,google-genai,google,first_party,,,Unified Gen AI SDK
+pypi,mistralai,mistral,first_party,,,
+pypi,cohere,cohere,first_party,,,
+pypi,groq,groq,first_party,,,Inference host; serves third-party open models
+pypi,dashscope,alibaba,first_party,,,Alibaba Cloud Model Studio (Qwen) SDK
+pypi,zhipuai,zhipu,first_party,,,
+npm,openai,openai,first_party,,,
+npm,@anthropic-ai/sdk,anthropic,first_party,,,
+npm,@google/generative-ai,google,first_party,,2025-12-31,Legacy; chain with @google/genai
+npm,@google/genai,google,first_party,,,
+npm,@mistralai/mistralai,mistral,first_party,,,
+npm,cohere-ai,cohere,first_party,,,
