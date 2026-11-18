@@ -9,7 +9,7 @@
     python -m demand_panel load openrouter data/raw/openrouter_export.csv
     python -m demand_panel load manual
     python -m demand_panel build --freq M --start 2023-01 --end 2026-10
-    python -m demand_panel merge --prices partA_prices.csv [--index partA_index.csv]
+    python -m demand_panel merge --prices partA_prices.csv [--index partA_index.csv] [--date-col X --model-col Y]
 
 All raw observations go to data/processed/observations.csv (append, de-duplicated).
 """
@@ -41,6 +41,57 @@ def _store(df: pd.DataFrame, unmatched: list[str] | None = None) -> None:
         print(f"{len(unmatched)} ids not in crosswalk -> {UNMATCHED}", file=sys.stderr)
 
 
+DATE_CANDIDATES = ["date", "effective_date", "price_date", "observed_at", "observation_date",
+                   "as_of", "asof", "day", "week", "month", "period", "timestamp", "time"]
+MODEL_CANDIDATES = ["model_id", "model", "model_name", "model_slug", "part_a_model_id", "slug"]
+
+
+def _pick(cols: list[str], explicit: str | None, candidates: list[str], what: str, path) -> str:
+    lower = {c.strip().lower().replace(" ", "_"): c for c in cols}
+    if explicit:
+        if explicit in cols:
+            return explicit
+        key = explicit.strip().lower().replace(" ", "_")
+        if key in lower:
+            return lower[key]
+        sys.exit(f"{path}: column '{explicit}' not found. Columns are: {cols}")
+    for c in candidates:
+        if c in lower:
+            return lower[c]
+    flag = "--date-col" if what == "date" else "--model-col"
+    sys.exit(f"{path}: no {what} column found. Columns are: {cols}\n"
+             f"Tell the merge which one to use, e.g. {flag} <column name>")
+
+
+def _load_part_a(path, date_col, model_col, need_model: bool) -> pd.DataFrame:
+    """Read a Part A file and rename its date/model columns to 'date'/'model_id'."""
+    path = Path(path).expanduser()
+    if not path.exists():
+        sys.exit(f"File not found: {path}")
+    df = pd.read_csv(path)
+    cols = list(df.columns)
+    ren = {_pick(cols, date_col, DATE_CANDIDATES, "date", path): "date"}
+    if need_model:
+        ren[_pick(cols, model_col, MODEL_CANDIDATES, "model", path)] = "model_id"
+    df = df.rename(columns=ren)
+    parsed = pd.to_datetime(df["date"], errors="coerce")
+    if parsed.isna().all():
+        sys.exit(f"{path}: could not read any dates in column '{[k for k, v in ren.items() if v == 'date'][0]}'. "
+                 f"First values: {df['date'].head(3).tolist()}")
+    df["date"] = parsed
+    n_bad = int(parsed.isna().sum())
+    if n_bad:
+        print(f"warning: {n_bad} rows in {path.name} have unreadable dates and were dropped", file=sys.stderr)
+        df = df[parsed.notna()]
+    num = [c for c in df.columns if c not in ("date", "model_id") and pd.api.types.is_numeric_dtype(df[c])]
+    if not num:
+        sys.exit(f"{path}: no numeric price/index columns found. Columns are: {cols}")
+    print(f"{path.name}: using date='{[k for k, v in ren.items() if v == 'date'][0]}'"
+          + (f", model='{[k for k, v in ren.items() if v == 'model_id'][0]}'" if need_model else "")
+          + f", values={num}", file=sys.stderr)
+    return df
+
+
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser(prog="demand_panel")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -66,6 +117,8 @@ def main(argv=None) -> None:
     m.add_argument("--index-by", default="", help="comma-separated key columns of the index file")
     m.add_argument("--how", default="asof", choices=["asof", "period_mean"])
     m.add_argument("--freq", default="M")
+    m.add_argument("--date-col", help="date column in the prices/index files (auto-detected if omitted)")
+    m.add_argument("--model-col", help="model id column in the prices file (auto-detected if omitted)")
     args = ap.parse_args(argv)
 
     cw = Crosswalk.load()
@@ -118,13 +171,13 @@ def main(argv=None) -> None:
         out = DATA / "processed"
         mp = pd.read_csv(out / f"model_panel_{args.freq}.csv")
         mp["period"] = pd.PeriodIndex(mp["period"], freq=args.freq)
-        from .merge import merge_prices
-        merged, diag = merge_prices(
-            mp, pd.read_csv(args.prices), cw, how=args.how)
+        from .merge import merge_index, merge_prices
+        prices = _load_part_a(args.prices, args.date_col, args.model_col, need_model=True)
+        merged, diag = merge_prices(mp, prices, cw, how=args.how)
         if args.index:
-            from .merge import merge_index
             by = [c for c in args.index_by.split(",") if c]
-            merged, d2 = merge_index(merged, pd.read_csv(args.index), by=by)
+            idx = _load_part_a(args.index, args.date_col, None, need_model=False)
+            merged, d2 = merge_index(merged, idx, by=by)
             diag["index"] = d2
         merged.to_csv(out / f"model_panel_merged_{args.freq}.csv", index=False)
         print(json.dumps(diag, indent=2, default=str))
