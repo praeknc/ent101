@@ -13,7 +13,7 @@
     python -m demand_panel merge                      # uses the cleaned Part A panel + index
     python -m demand_panel merge --prices other_prices.csv [--index idx.csv] [--date-col X --model-col Y]
 
-All raw observations go to data/processed/observations.csv (append, de-duplicated).
+All raw observations go to data/processed/observations.csv.gz (append, de-duplicated).
 """
 from __future__ import annotations
 
@@ -30,11 +30,15 @@ from .collectors import github, huggingface, manual, openrouter, packages
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
-OBS = DATA / "processed" / "observations.csv"
+OBS = DATA / "processed" / "observations.csv.gz"
 UNMATCHED = DATA / "processed" / "unmatched_ids.txt"
 
 
 def _store(df: pd.DataFrame, unmatched: list[str] | None = None) -> None:
+    legacy = DATA / "processed" / "observations.csv"
+    if not OBS.exists() and legacy.exists():  # one-off migration to the compressed store
+        schema.append_obs(schema.read_obs(legacy), OBS)
+        legacy.unlink()
     all_obs = schema.append_obs(df, OBS)
     print(f"+{len(df)} rows -> {OBS} ({len(all_obs)} total)")
     if unmatched:
@@ -100,7 +104,8 @@ def main(argv=None) -> None:
     sub.add_parser("docs")
     sub.add_parser("templates")
     c = sub.add_parser("collect")
-    c.add_argument("source", choices=["huggingface", "github", "pypi", "npm", "openrouter-models"])
+    c.add_argument("source", choices=["openrouter", "huggingface", "github", "pypi", "npm", "openrouter-models"])
+    c.add_argument("--from-raw", help="openrouter: parse an already downloaded data/raw/openrouter/<date> folder")
     c.add_argument("--start", default="2023-01")
     c.add_argument("--end", default=pd.Timestamp.today().strftime("%Y-%m"))
     c.add_argument("--no-derivatives", action="store_true")
@@ -142,7 +147,22 @@ def main(argv=None) -> None:
         manual.write_templates(DATA / "manual")
         print("templates in", DATA / "manual")
     elif args.cmd == "collect":
-        if args.source == "huggingface":
+        if args.source == "openrouter":
+            from .collectors import openrouter_scrape as ors
+            folder = Path(args.from_raw) if args.from_raw else ors.fetch_all(DATA / "raw" / "openrouter")
+            obs, table, new = ors.parse_folder(folder, cw)
+            added = ors.add_models_to_crosswalk(new, DATA / "reference" / "model_crosswalk.csv")
+            _store(obs)
+            if not table.empty:
+                tpath = DATA / "processed" / "openrouter_weekly_table.csv"
+                old = pd.read_csv(tpath) if tpath.exists() else pd.DataFrame()
+                table["week_start"] = table["week_start"].astype(str)
+                both = pd.concat([old, table], ignore_index=True).drop_duplicates(
+                    ["week_start", "permaslug", "variant", "source"], keep="last")
+                both.sort_values(["week_start", "tokens"], ascending=[True, False]).to_csv(tpath, index=False)
+                print(f"weekly table -> {tpath} ({len(both)} rows)")
+            print(f"raw snapshot in {folder}; {added} new OpenRouter models added to the crosswalk")
+        elif args.source == "huggingface":
             _store(huggingface.collect(cw, derivatives=not args.no_derivatives))
         elif args.source == "github":
             q = pd.read_csv(DATA / "reference" / "github_queries.csv", dtype=str)
@@ -167,6 +187,9 @@ def main(argv=None) -> None:
                 if p.exists():
                     _store(manual.load(p, cw, sid))
     elif args.cmd == "build":
+        legacy = DATA / "processed" / "observations.csv"
+        if not OBS.exists() and legacy.exists():
+            schema.append_obs(schema.read_obs(legacy), OBS)
         obs = schema.read_obs(OBS)
         out = DATA / "processed"
         mw, ml = panel.build_model_panel(obs, args.freq, args.include_validation)

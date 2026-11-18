@@ -56,7 +56,7 @@ SOURCES: dict[str, Source] = {s.source_id: s for s in [
         source_id="openrouter",
         name="OpenRouter rankings (token volume by model and by app)",
         category="usage_aggregator", tier="A", entity_level="model_x_app",
-        native_freq="W", region="global", collection="export",
+        native_freq="D", region="global", collection="api",
         can_show="Relative token demand across models from many providers routed through one "
                  "gateway; switching between models over time; which apps drive which models; "
                  "response of usage share to price changes on the same platform.",
@@ -73,6 +73,9 @@ SOURCES: dict[str, Source] = {s.source_id: s for s in [
             "Rankings show only the top-N models/apps per period; long tail is left-censored "
             "(record as missing, not zero).",
             "Platform growth itself raises all levels; use shares or normalise by platform total.",
+            "Scraped from the site's undocumented frontend endpoints: daily data exists only for the last "
+            "~31 days and the weekly chart only for ~53 weeks x top ~9 models, so history before the first "
+            "scrape is top-N only. Collect weekly to build the full series.",
         ],
         merge_level="model",
         url="https://openrouter.ai/rankings",

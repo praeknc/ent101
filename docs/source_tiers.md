@@ -12,7 +12,7 @@ Generated from `demand_panel/sources.py`. Edit there, then run `python -m demand
 
 | source_id | tier | category | entity_level | native_freq | region | collection | merge_level | validation_only |
 |---|---|---|---|---|---|---|---|---|
-| openrouter | A | usage_aggregator | model_x_app | W | global | export | model | False |
+| openrouter | A | usage_aggregator | model_x_app | D | global | api | model | False |
 | github | B | developer_activity | provider | M | global | api | provider | False |
 | pypi | B | developer_activity | package | D | global | api | provider | False |
 | npm | B | developer_activity | package | D | global | api | provider | False |
@@ -34,6 +34,7 @@ Generated from `demand_panel/sources.py`. Edit there, then run `python -m demand
 - Free and promotional model variants inflate tokens for some open-weight models; keep ':free' variants as a separate flag rather than merging them silently.
 - Rankings show only the top-N models/apps per period; long tail is left-censored (record as missing, not zero).
 - Platform growth itself raises all levels; use shares or normalise by platform total.
+- Scraped from the site's undocumented frontend endpoints: daily data exists only for the last ~31 days and the weekly chart only for ~53 weeks x top ~9 models, so history before the first scrape is top-N only. Collect weekly to build the full series.
 
 Reference: https://openrouter.ai/rankings
 

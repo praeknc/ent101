@@ -10,7 +10,15 @@ Generated from `demand_panel/dictionary.py`. `agg` is the rule used to collapse 
 | or_tokens_prompt | OpenRouter prompt tokens | model | tokens | W | sum | False | Input tokens, where the export separates them. |
 | or_tokens_completion | OpenRouter completion tokens | model | tokens | W | sum | False | Output tokens, where the export separates them. |
 | or_app_tokens | OpenRouter tokens by app x model | model_x_app | tokens | W | sum | False | Tokens a named app sent to a model. Entity id is '<app_id>\|<model_id>'. |
-| or_token_share | OpenRouter token share | model | share [0,1] | W | mean | True | or_tokens / sum of or_tokens over all models in the period (models in the ranking only). |
+| or_tokens_free | OpenRouter tokens on free variant | model | tokens | D | sum | False | Subset of or_tokens served on the ':free' variant (zero price to the user). |
+| or_requests | OpenRouter requests | model | requests | D | sum | False | Number of requests (all variants). |
+| or_tokens_topweekly | OpenRouter tokens, weekly top-N chart | model | tokens | W | sum | False | Weekly tokens from the rankings chart; only the ~9 largest models each week appear (others are missing, not zero). Longer history than or_tokens. |
+| or_tokens_platform | OpenRouter total tokens (all models) | market | tokens | W | sum | False | Sum of all chart series including 'Others' = all tokens routed that week. |
+| or_token_share_platform | Share of all OpenRouter tokens (top-N weeks) | model | share [0,1] | W | mean | True | or_tokens_topweekly / or_tokens_platform. |
+| or_app_tokens_day | App tokens, last day (top 20 apps) | app | tokens | snapshot | last | False | Tokens sent by the app in the last day, from the rankings page. |
+| or_app_tokens_week | App tokens, last week (top 20 apps) | app | tokens | snapshot | last | False | Tokens sent by the app in the last 7 days. |
+| or_app_tokens_month | App tokens, last month (top 20 apps) | app | tokens | snapshot | last | False | Tokens sent by the app in the last 30 days. |
+| or_token_share | OpenRouter token share | model | share [0,1] | W | mean | True | or_tokens / sum of or_tokens over all models in the period (all models with daily activity data). |
 | or_n_apps | Number of ranked apps using model | model | count | W | max | True | Distinct apps with positive or_app_tokens for the model in the period. |
 | or_top_app_share | Share of model tokens from its largest app | model | share [0,1] | W | mean | True | Concentration check: max over apps of or_app_tokens / or_tokens. |
 

@@ -3,7 +3,15 @@ or_tokens,OpenRouter tokens (total),openrouter,model,tokens,W,sum,"Prompt + comp
 or_tokens_prompt,OpenRouter prompt tokens,openrouter,model,tokens,W,sum,"Input tokens, where the export separates them.",False
 or_tokens_completion,OpenRouter completion tokens,openrouter,model,tokens,W,sum,"Output tokens, where the export separates them.",False
 or_app_tokens,OpenRouter tokens by app x model,openrouter,model_x_app,tokens,W,sum,Tokens a named app sent to a model. Entity id is '<app_id>|<model_id>'.,False
-or_token_share,OpenRouter token share,openrouter,model,"share [0,1]",W,mean,or_tokens / sum of or_tokens over all models in the period (models in the ranking only).,True
+or_tokens_free,OpenRouter tokens on free variant,openrouter,model,tokens,D,sum,Subset of or_tokens served on the ':free' variant (zero price to the user).,False
+or_requests,OpenRouter requests,openrouter,model,requests,D,sum,Number of requests (all variants).,False
+or_tokens_topweekly,"OpenRouter tokens, weekly top-N chart",openrouter,model,tokens,W,sum,"Weekly tokens from the rankings chart; only the ~9 largest models each week appear (others are missing, not zero). Longer history than or_tokens.",False
+or_tokens_platform,OpenRouter total tokens (all models),openrouter,market,tokens,W,sum,Sum of all chart series including 'Others' = all tokens routed that week.,False
+or_token_share_platform,Share of all OpenRouter tokens (top-N weeks),openrouter,model,"share [0,1]",W,mean,or_tokens_topweekly / or_tokens_platform.,True
+or_app_tokens_day,"App tokens, last day (top 20 apps)",openrouter,app,tokens,snapshot,last,"Tokens sent by the app in the last day, from the rankings page.",False
+or_app_tokens_week,"App tokens, last week (top 20 apps)",openrouter,app,tokens,snapshot,last,Tokens sent by the app in the last 7 days.,False
+or_app_tokens_month,"App tokens, last month (top 20 apps)",openrouter,app,tokens,snapshot,last,Tokens sent by the app in the last 30 days.,False
+or_token_share,OpenRouter token share,openrouter,model,"share [0,1]",W,mean,or_tokens / sum of or_tokens over all models in the period (all models with daily activity data).,True
 or_n_apps,Number of ranked apps using model,openrouter,model,count,W,max,Distinct apps with positive or_app_tokens for the model in the period.,True
 or_top_app_share,Share of model tokens from its largest app,openrouter,model,"share [0,1]",W,mean,Concentration check: max over apps of or_app_tokens / or_tokens.,True
 gh_new_repos,New public repos mentioning provider,github,provider,repos,M,sum,GitHub repository-search total_count for the provider query restricted to repos created in the month.,False

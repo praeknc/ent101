@@ -184,3 +184,13 @@ def test_store_roundtrip(tmp_path, cw, or_export):
     again = schema.append_obs(obs, path)  # idempotent
     assert len(again) == len(obs)
     assert len(schema.read_obs(path)) == len(obs)
+
+
+def test_recollection_replaces_not_duplicates(tmp_path, cw, or_export):
+    obs, _ = openrouter.load_export(or_export, cw)
+    path = tmp_path / "obs.csv.gz"
+    schema.append_obs(obs, path)
+    later = obs.assign(retrieved_at="2099-01-01T00:00:00Z", value=obs["value"] + 1)
+    out = schema.append_obs(later, path)
+    assert len(out) == len(obs)                       # same entity x period x variable -> replaced
+    assert (schema.read_obs(path)["value"].sort_values().values == later["value"].sort_values().values).all()

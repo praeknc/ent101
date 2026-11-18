@@ -178,6 +178,13 @@ def build_model_panel(obs: pd.DataFrame, freq: str = "M", include_validation: bo
             derived.append(top[["model_id", "period", "value"]].assign(
                 variable="or_top_app_share", sources="openrouter", tier="A"))
     derived.append(_hf_downloads_period(model_rows, "model_id"))
+    topw = long[long["variable"] == "or_tokens_topweekly"]
+    plat = obs[obs["variable"] == "or_tokens_platform"]
+    if not topw.empty and not plat.empty:
+        denom = assign_periods(plat, freq).groupby("period")["value"].sum().rename("denom")
+        t = topw.join(denom, on="period").dropna(subset=["denom"])
+        derived.append(t.assign(variable="or_token_share_platform", value=t["value"] / t["denom"])
+                       .drop(columns="denom"))
     long = _add_derived(long, keys, derived)
     return _wide(long, keys), long
 

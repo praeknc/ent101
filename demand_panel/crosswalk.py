@@ -33,11 +33,16 @@ class Crosswalk:
         self.models = models.fillna("").astype(str)
         self.packages = packages.fillna("").astype(str) if packages is not None else pd.DataFrame()
         self._lookup: dict[str, str] = {}
+        # Part A key -> model_id, for names that only match after Part A normalisation
+        # (e.g. OpenRouter "anthropic/claude-sonnet-4.5" -> Part A key "claude-sonnet-4-5")
+        self._part_a: dict[str, str] = {}
         for _, r in self.models.iterrows():
             keys = [r["model_id"], r["openrouter_slug"], r["hf_repo_id"], r["part_a_model_id"]]
             keys += [a for a in r["aliases"].split("|") if a]
             # bare name without provider prefix, e.g. "gpt-4o"
             keys += [k.split("/", 1)[1] for k in keys if "/" in k]
+            if r["part_a_model_id"]:
+                self._part_a.setdefault(r["part_a_model_id"], r["model_id"])
             for k in keys:
                 if not k:
                     continue
@@ -57,7 +62,11 @@ class Crosswalk:
 
     # ------------------------------------------------------------------ models
     def model_id(self, raw: str) -> str:
-        return self._lookup.get(_norm(raw), "")
+        hit = self._lookup.get(_norm(raw), "")
+        if hit or not self._part_a:
+            return hit
+        from .part_a import model_key
+        return self._part_a.get(model_key(raw), "")
 
     def provider_of(self, model_id: str) -> str:
         hit = self.models.loc[self.models["model_id"] == model_id, "provider_id"]

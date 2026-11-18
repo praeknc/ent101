@@ -34,8 +34,10 @@ OBS_COLUMNS = [
     "note",            # quote / page / query string / caveat
 ]
 
+# retrieved_at is deliberately NOT part of the id: re-collecting the same entity x period x
+# variable replaces the old value (latest retrieval wins) instead of double counting it.
 _ID_COLS = ["source_id", "entity_type", "entity_id", "app_id", "region",
-            "period_start", "period_end", "variable", "retrieved_at"]
+            "period_start", "period_end", "variable"]
 
 
 def now_utc() -> str:
@@ -73,7 +75,9 @@ def make_obs(rows: list[dict]) -> pd.DataFrame:
 
 
 def _hash_row(r) -> str:
-    key = "|".join(str(r.get(c, "")) for c in _ID_COLS)
+    def fmt(v):
+        return v.strftime("%Y-%m-%d") if isinstance(v, pd.Timestamp) else str(v)
+    key = "|".join(fmt(r.get(c, "")) for c in _ID_COLS)
     return hashlib.sha1(key.encode()).hexdigest()[:16]
 
 
@@ -106,8 +110,11 @@ def validate(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def read_obs(path) -> pd.DataFrame:
-    return validate(pd.read_csv(path, dtype={"model_id": str, "provider_id": str, "app_id": str,
-                                             "entity_id": str, "note": str, "source_url": str}))
+    df = validate(pd.read_csv(path, dtype={"model_id": str, "provider_id": str, "app_id": str,
+                                           "entity_id": str, "note": str, "source_url": str}))
+    # recompute ids so stores written under an older id rule de-duplicate correctly
+    df["obs_id"] = df.apply(_hash_row, axis=1)
+    return df
 
 
 def append_obs(new: pd.DataFrame, path) -> pd.DataFrame:
@@ -119,7 +126,8 @@ def append_obs(new: pd.DataFrame, path) -> pd.DataFrame:
         combined = pd.concat([old, new], ignore_index=True)
     else:
         combined = new
-    combined = combined.drop_duplicates("obs_id", keep="last").sort_values(
+    combined["retrieved_at"] = combined["retrieved_at"].astype(str)
+    combined = combined.sort_values("retrieved_at", kind="stable").drop_duplicates("obs_id", keep="last").sort_values(
         ["source_id", "variable", "entity_id", "period_end"])
     path.parent.mkdir(parents=True, exist_ok=True)
     out = combined.copy()

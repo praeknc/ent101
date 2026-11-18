@@ -24,7 +24,7 @@ The full table, with what each source can and cannot show and its sampling-bias 
 
 | Source | Tier | Level | How collected |
 |---|---|---|---|
-| OpenRouter rankings | A | model, model × app | CSV export/transcription (no public history API); `fetch_models()` for slugs and list prices |
+| OpenRouter rankings | A | model, app | `collect openrouter` scrapes the rankings site's endpoints. **Run weekly** (see below) |
 | Hugging Face Hub | A | model | API, snapshot only. **Run weekly**: history cannot be recovered later |
 | GitHub new repos | B | provider | Repository search API, monthly `created:` ranges, normalised by all new repos |
 | PyPI / npm SDK downloads | B | package → provider | pypistats (~180 days) or BigQuery SQL for long history; npm range API |
@@ -36,6 +36,22 @@ Tier rules:
 - **A** is a systematic log of behaviour and is used for main outcomes.
 - **B** is an indirect proxy or an unaudited aggregate. It is used for robustness checks and as level anchors.
 - **C** covers announcements, rankings and surveys. It is used for description and validation.
+
+## OpenRouter: `python -m demand_panel collect openrouter`
+
+This command takes about 4 minutes and saves raw JSON to `data/raw/openrouter/<YYYYMMDD>/`. It collects:
+
+| Data | Coverage | Variables |
+|---|---|---|
+| Daily tokens, prompt/completion and requests for **every** model variant (standard / free / batch) | last ~31 days | `or_tokens`, `or_tokens_prompt`, `or_tokens_completion`, `or_requests`, `or_tokens_free` |
+| Weekly rankings chart | ~53 weeks, top ~9 models per week plus "Others" | `or_tokens_topweekly`, `or_tokens_platform` (all models), derived `or_token_share_platform` |
+| Top 20 apps | day / week / month snapshot | `or_app_tokens_day/week/month` |
+
+It also writes a readable table to `data/processed/openrouter_weekly_table.csv`, one row per week × model.
+
+OpenRouter models that aren't in the crosswalk are added automatically. Names are matched to Part A keys too, so `anthropic/claude-sonnet-4.5` links to the Part A key `claude-sonnet-4-5`.
+
+Re-running the command replaces values for the same model × day instead of adding them twice, so overlapping weekly runs are safe. To re-parse a saved snapshot without downloading again, use `--from-raw data/raw/openrouter/<date>`.
 
 ## Merge keys
 

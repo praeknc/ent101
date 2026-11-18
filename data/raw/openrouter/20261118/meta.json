@@ -1,0 +1,7 @@
+{
+ "retrieved_at": "2026-11-18T19:42:32Z",
+ "n_activity": 724,
+ "failed": [
+  "|standard: GET https://openrouter.ai/api/frontend/v1/stats/model-activity failed after 3 attempts: 400 Client Error: Bad Request for url: https://openrouter.ai/api/frontend/v1/stats/model-activity?permaslug=&variant=standard"
+ ]
+}
