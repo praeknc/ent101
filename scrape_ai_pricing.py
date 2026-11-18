@@ -82,7 +82,13 @@ SOURCES = [
     dict(provider="google", url="https://ai.google.dev/gemini-api/docs/pricing",
          render="auto", parser="gemini", authoritative=True),
     # JS-rendered, must use a browser. Confirm these URLs yourself.
-    dict(provider="alibaba", url="https://www.alibabacloud.com/help/en/model-studio/pricing",
+    # The old /help/en/model-studio/pricing page returns 404 since Nov 2026. Candidates
+    # below are tried in order (taken from the source links LiteLLM cites); the first
+    # page that is not a "not found" page and yields rows is used.
+    dict(provider="alibaba", url="https://www.alibabacloud.com/help/en/model-studio/model-pricing",
+         fallback_urls=["https://docs.modelstudio.console.alibabacloud.com/en/model-studio/model-pricing",
+                        "https://www.qwencloud.com/models",
+                        "https://www.alibabacloud.com/help/en/model-studio/models"],
          render="yes", parser="alibaba", authoritative=True),
     dict(provider="baidu", url="https://intl.cloud.baidu.com/zh/doc/qianfan/s/Jm8r1826a-intl",
          render="yes", parser="long", authoritative=True),  # one row per 输入/输出 sub-item
@@ -100,6 +106,7 @@ HISTORY = {
                   "https://platform.claude.com/docs/en/about-claude/pricing"],
     "google": ["https://ai.google.dev/pricing", "https://ai.google.dev/gemini-api/docs/pricing"],
     "alibaba": ["https://www.alibabacloud.com/help/en/model-studio/pricing",
+                "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
                 "https://help.aliyun.com/zh/model-studio/billing-for-model-studio"],
     "baidu": ["https://intl.cloud.baidu.com/zh/doc/qianfan/s/Jm8r1826a-intl",
               "https://cloud.baidu.com/doc/WENXINWORKSHOP/s/hlrk4akp7"],
@@ -804,25 +811,51 @@ def fetch_live(src):
     return fetch_rendered(url, shot), "html", "playwright"
 
 
+def page_not_found(content):
+    """True for error pages served with a normal 200 (Alibaba's '404 阿里云错误页')."""
+    head = content[:20000]
+    title = re.search(r'<title[^>]*>(.*?)</title>', head, re.I | re.S)
+    t = (title.group(1) if title else "").lower()
+    return bool(re.search(r'\b404\b|not found|错误页', t)) or \
+        "could not be found" in BeautifulSoup(head, "lxml").get_text(" ").lower()[:3000]
+
+
 def run_live(args):
     summary = []
     for src in SOURCES:
         if args.provider and src["provider"] not in args.provider:
             continue
-        print(f"[live] {src['provider']}: {src['url']}")
-        try:
-            content, ext, method = fetch_live(src)
-            recs = PARSERS[src["parser"]](content, dict(src))
-            # auto mode: static HTML had no tables -> retry in a browser
-            if not recs and src["render"] == "auto" and method == "http":
-                print("  0 rows from static HTML; retrying with browser")
-                shot = RAW / src["provider"] / f"{now_utc()}.png"
-                content, ext, method = fetch_rendered(src["url"], shot), "html", "playwright"
-                recs = PARSERS[src["parser"]](content, dict(src))
-        except Exception as e:
-            print(f"  ERROR: {e}")
-            summary.append((src["provider"], "ERROR", str(e)[:80]))
+        got, last_err = None, None
+        for url in [src["url"]] + src.get("fallback_urls", []):
+            cand = dict(src, url=url)
+            print(f"[live] {src['provider']}: {url}")
+            try:
+                content, ext, method = fetch_live(cand)
+                if page_not_found(content):
+                    print("  page not found (404); trying next URL" if url != (
+                        src.get("fallback_urls") or [url])[-1] else "  page not found (404)")
+                    last_err = "page not found"
+                    continue
+                recs = PARSERS[src["parser"]](content, dict(cand))
+                # auto mode: static HTML had no tables -> retry in a browser
+                if not recs and src["render"] == "auto" and method == "http":
+                    print("  0 rows from static HTML; retrying with browser")
+                    shot = RAW / src["provider"] / f"{now_utc()}.png"
+                    content, ext, method = fetch_rendered(url, shot), "html", "playwright"
+                    recs = PARSERS[src["parser"]](content, dict(cand))
+            except Exception as e:
+                print(f"  ERROR: {e}")
+                last_err = str(e)
+                continue
+            if got is None or recs:
+                got = (cand, content, ext, method, recs)
+            if recs:
+                break
+            print("  0 rows; trying next URL" if src.get("fallback_urls") else "")
+        if got is None:
+            summary.append((src["provider"], "ERROR", (last_err or "")[:80]))
             continue
+        src, content, ext, method, recs = got
         path, sha = save_snapshot(src["provider"], src["url"], content, ext, method)
         ctx = dict(url=src["url"], source_type="official_live",
                    retrieved_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
